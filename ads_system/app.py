@@ -1,0 +1,233 @@
+"""
+Aplicação principal para o sistema de anúncios e dashboard
+"""
+import os
+import logging
+from flask import Flask, jsonify, request, render_template, redirect, url_for
+from flask_cors import CORS
+import firebase_admin
+from firebase_admin import credentials, db
+
+# Importar modelo de anúncios
+from models.ads import AdModel
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Inicialização da aplicação Flask
+app = Flask(__name__)
+
+# Configuração de CORS
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["*"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 86400
+    }
+})
+
+# Credenciais do Firebase (usando variáveis de ambiente)
+FIREBASE_CREDENTIALS = {
+    "type": os.getenv("FIREBASE_TYPE"),
+    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n'),
+    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER"),
+    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
+}
+
+# Inicialização do Firebase
+def init_firebase():
+    """Inicializa a conexão com o Firebase"""
+    if not firebase_admin._apps:
+        try:
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': os.getenv("FIREBASE_DB_URL")
+            })
+            logger.info("✅ Firebase inicializado")
+            return True
+        except Exception as e:
+            logger.error(f"🔥 ERRO Firebase: {str(e)}")
+            return False
+    return True
+
+# Instância do modelo de anúncios
+ads_model = None
+
+# Inicialização do modelo de anúncios
+def init_ads_model():
+    """Inicializa o modelo de anúncios"""
+    global ads_model
+    if init_firebase():
+        ads_ref = db.reference('ads')
+        ads_model = AdModel(ads_ref)
+        return True
+    return False
+
+# Rotas para API de anúncios
+@app.route('/api/ads/banner', methods=['GET'])
+def get_banner_ads():
+    """Retorna todos os anúncios de banner"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        ads = ads_model.get_banner_ads()
+        return jsonify({"ads": ads})
+    except Exception as e:
+        logger.error(f"Erro ao obter banners: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/ads/fullscreen', methods=['GET'])
+def get_fullscreen_ads():
+    """Retorna todos os anúncios de tela cheia"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        ads = ads_model.get_fullscreen_ads()
+        return jsonify({"ads": ads})
+    except Exception as e:
+        logger.error(f"Erro ao obter anúncios de tela cheia: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/ads/impression', methods=['POST'])
+def record_impression():
+    """Registra uma impressão de anúncio"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        data = request.get_json()
+        ad_id = data.get('adId')
+        ad_type = data.get('adType')
+        
+        if not ad_id or not ad_type:
+            return jsonify({"error": "ID do anúncio e tipo são obrigatórios"}), 400
+        
+        if ad_type not in ['banner', 'fullscreen']:
+            return jsonify({"error": "Tipo de anúncio inválido"}), 400
+        
+        success = ads_model.record_impression(ad_id, ad_type)
+        
+        if success:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Falha ao registrar impressão"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao registrar impressão: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/ads/click', methods=['POST'])
+def record_click():
+    """Registra um clique em anúncio"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        data = request.get_json()
+        ad_id = data.get('adId')
+        ad_type = data.get('adType')
+        
+        if not ad_id or not ad_type:
+            return jsonify({"error": "ID do anúncio e tipo são obrigatórios"}), 400
+        
+        if ad_type not in ['banner', 'fullscreen']:
+            return jsonify({"error": "Tipo de anúncio inválido"}), 400
+        
+        success = ads_model.record_click(ad_id, ad_type)
+        
+        if success:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Falha ao registrar clique"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao registrar clique: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# Rotas para o dashboard
+@app.route('/')
+def dashboard_home():
+    """Página inicial do dashboard"""
+    if not init_ads_model():
+        return render_template('error.html', message="Falha ao inicializar Firebase")
+    
+    try:
+        metrics = ads_model.get_metrics()
+        return render_template('dashboard.html', metrics=metrics)
+    except Exception as e:
+        logger.error(f"Erro ao carregar dashboard: {str(e)}")
+        return render_template('error.html', message=str(e))
+
+@app.route('/add-banner', methods=['GET', 'POST'])
+def add_banner():
+    """Adiciona um novo anúncio de banner"""
+    if request.method == 'POST':
+        if not init_ads_model():
+            return render_template('error.html', message="Falha ao inicializar Firebase")
+        
+        try:
+            image_url = request.form.get('imageUrl')
+            link_url = request.form.get('linkUrl')
+            
+            if not image_url or not link_url:
+                return render_template('add_banner.html', error="URL da imagem e URL de destino são obrigatórios")
+            
+            ad_id = ads_model.add_banner_ad(image_url, link_url)
+            
+            if ad_id:
+                return redirect(url_for('dashboard_home'))
+            else:
+                return render_template('add_banner.html', error="Falha ao adicionar anúncio")
+        except Exception as e:
+            logger.error(f"Erro ao adicionar banner: {str(e)}")
+            return render_template('add_banner.html', error=str(e))
+    
+    return render_template('add_banner.html')
+
+@app.route('/add-fullscreen', methods=['GET', 'POST'])
+def add_fullscreen():
+    """Adiciona um novo anúncio de tela cheia"""
+    if request.method == 'POST':
+        if not init_ads_model():
+            return render_template('error.html', message="Falha ao inicializar Firebase")
+        
+        try:
+            image_url = request.form.get('imageUrl')
+            link_url = request.form.get('linkUrl')
+            
+            if not image_url or not link_url:
+                return render_template('add_fullscreen.html', error="URL da imagem e URL de destino são obrigatórios")
+            
+            ad_id = ads_model.add_fullscreen_ad(image_url, link_url)
+            
+            if ad_id:
+                return redirect(url_for('dashboard_home'))
+            else:
+                return render_template('add_fullscreen.html', error="Falha ao adicionar anúncio")
+        except Exception as e:
+            logger.error(f"Erro ao adicionar anúncio de tela cheia: {str(e)}")
+            return render_template('add_fullscreen.html', error=str(e))
+    
+    return render_template('add_fullscreen.html')
+
+# Rota para verificação de saúde
+@app.route('/health')
+def health_check():
+    """Verificação de saúde da aplicação"""
+    return jsonify({"status": "healthy"}), 200
+
+# Inicialização da aplicação
+if __name__ == '__main__':
+    if init_firebase():
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+    else:
+        logger.critical("❌ Servidor não iniciado: Firebase falhou")
