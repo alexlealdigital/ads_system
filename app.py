@@ -22,35 +22,22 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/api/*": {
         "origins": ["*"],
-        "methods": ["GET", "POST", "OPTIONS"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True,
         "max_age": 86400
     }
 })
 
-# Credenciais do Firebase (usando variáveis de ambiente)
-FIREBASE_CREDENTIALS = {
-    "type": os.getenv("FIREBASE_TYPE"),
-    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-    "private_key": os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n'),
-    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
-    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
-    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER"),
-    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
-}
-
 # Inicialização do Firebase
 def init_firebase():
     """Inicializa a conexão com o Firebase"""
     if not firebase_admin._apps:
         try:
-            cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+            # Usar arquivo JSON em vez de variáveis de ambiente
+            cred = credentials.Certificate('firebase-credentials.json')
             firebase_admin.initialize_app(cred, {
-                'databaseURL': os.getenv("FIREBASE_DB_URL")
+                'databaseURL': 'https://deepfish-counter-default-rtdb.firebaseio.com'
             })
             logger.info("✅ Firebase inicializado")
             return True
@@ -99,9 +86,12 @@ def get_fullscreen_ads():
         logger.error(f"Erro ao obter anúncios de tela cheia: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ads/impression', methods=['POST'])
+@app.route('/api/ads/impression', methods=['POST', 'OPTIONS'])
 def record_impression():
     """Registra uma impressão de anúncio"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
@@ -126,9 +116,12 @@ def record_impression():
         logger.error(f"Erro ao registrar impressão: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ads/click', methods=['POST'])
+@app.route('/api/ads/click', methods=['POST', 'OPTIONS'])
 def record_click():
     """Registra um clique em anúncio"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
@@ -193,6 +186,54 @@ def add_banner():
     
     return render_template('add_banner.html')
 
+@app.route('/edit-banner/<ad_id>', methods=['GET', 'POST'])
+def edit_banner(ad_id):
+    """Edita um anúncio de banner existente"""
+    if not init_ads_model():
+        return render_template('error.html', message="Falha ao inicializar Firebase")
+    
+    try:
+        if request.method == 'POST':
+            image_url = request.form.get('imageUrl')
+            link_url = request.form.get('linkUrl')
+            
+            if not image_url or not link_url:
+                return render_template('edit_banner.html', error="URL da imagem e URL de destino são obrigatórios", ad=ads_model.get_banner_ad(ad_id))
+            
+            success = ads_model.update_banner_ad(ad_id, image_url, link_url)
+            
+            if success:
+                return redirect(url_for('dashboard_home'))
+            else:
+                return render_template('edit_banner.html', error="Falha ao atualizar anúncio", ad=ads_model.get_banner_ad(ad_id))
+        
+        # GET request - mostrar formulário de edição
+        ad = ads_model.get_banner_ad(ad_id)
+        if not ad:
+            return render_template('error.html', message="Anúncio não encontrado")
+        
+        return render_template('edit_banner.html', ad=ad)
+    except Exception as e:
+        logger.error(f"Erro ao editar banner: {str(e)}")
+        return render_template('error.html', message=str(e))
+
+@app.route('/delete-banner/<ad_id>', methods=['POST'])
+def delete_banner(ad_id):
+    """Exclui um anúncio de banner"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        success = ads_model.delete_banner_ad(ad_id)
+        
+        if success:
+            return redirect(url_for('dashboard_home'))
+        else:
+            return render_template('error.html', message="Falha ao excluir anúncio")
+    except Exception as e:
+        logger.error(f"Erro ao excluir banner: {str(e)}")
+        return render_template('error.html', message=str(e))
+
 @app.route('/add-fullscreen', methods=['GET', 'POST'])
 def add_fullscreen():
     """Adiciona um novo anúncio de tela cheia"""
@@ -218,6 +259,54 @@ def add_fullscreen():
             return render_template('add_fullscreen.html', error=str(e))
     
     return render_template('add_fullscreen.html')
+
+@app.route('/edit-fullscreen/<ad_id>', methods=['GET', 'POST'])
+def edit_fullscreen(ad_id):
+    """Edita um anúncio de tela cheia existente"""
+    if not init_ads_model():
+        return render_template('error.html', message="Falha ao inicializar Firebase")
+    
+    try:
+        if request.method == 'POST':
+            image_url = request.form.get('imageUrl')
+            link_url = request.form.get('linkUrl')
+            
+            if not image_url or not link_url:
+                return render_template('edit_fullscreen.html', error="URL da imagem e URL de destino são obrigatórios", ad=ads_model.get_fullscreen_ad(ad_id))
+            
+            success = ads_model.update_fullscreen_ad(ad_id, image_url, link_url)
+            
+            if success:
+                return redirect(url_for('dashboard_home'))
+            else:
+                return render_template('edit_fullscreen.html', error="Falha ao atualizar anúncio", ad=ads_model.get_fullscreen_ad(ad_id))
+        
+        # GET request - mostrar formulário de edição
+        ad = ads_model.get_fullscreen_ad(ad_id)
+        if not ad:
+            return render_template('error.html', message="Anúncio não encontrado")
+        
+        return render_template('edit_fullscreen.html', ad=ad)
+    except Exception as e:
+        logger.error(f"Erro ao editar anúncio de tela cheia: {str(e)}")
+        return render_template('error.html', message=str(e))
+
+@app.route('/delete-fullscreen/<ad_id>', methods=['POST'])
+def delete_fullscreen(ad_id):
+    """Exclui um anúncio de tela cheia"""
+    if not init_ads_model():
+        return jsonify({"error": "Falha ao inicializar Firebase"}), 500
+    
+    try:
+        success = ads_model.delete_fullscreen_ad(ad_id)
+        
+        if success:
+            return redirect(url_for('dashboard_home'))
+        else:
+            return render_template('error.html', message="Falha ao excluir anúncio")
+    except Exception as e:
+        logger.error(f"Erro ao excluir anúncio de tela cheia: {str(e)}")
+        return render_template('error.html', message=str(e))
 
 # Rota para verificação de saúde
 @app.route('/health')
