@@ -27,9 +27,11 @@ google-cloud-storage==1.42.0
 google-crc32c==1.1.2
 google-resumable-media==2.0.0
 googleapis-common-protos==1.53.0
-grpcio==1.39.0
-httplib2==0.19.1
-proto-plus==1.19.0
 protobuf==3.17.3
 pyparsing==2.4.7
 rsa==4.7.2
+# Removendo grpcio que causa erro de compilação
+# grpcio==1.39.0
+# Usando versão pré-compilada do grpcio
+grpcio==1.39.0; platform_machine != "aarch64"
+grpcio-tools==1.39.0; platform_machine != "aarch64"
