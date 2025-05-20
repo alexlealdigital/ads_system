@@ -1,443 +1,358 @@
-/**
- * Sistema de Anúncios para Jogo WebGL Unity
- * 
- * Este script gerencia a exibição de anúncios no jogo:
- * - Banner rotativo no topo da página (1080×140px)
- * - Anúncios de tela cheia após game over (1080×1920px)
- * - Rastreamento de impressões e cliques
- */
+"""
+Modelo de dados para o sistema de anúncios
+"""
+import json
+import time
+from datetime import datetime
 
-// Configuração
-const CONFIG = {
-    // Intervalo de rotação do banner em milissegundos (7 segundos)
-    BANNER_ROTATION_INTERVAL: 7000,
+class AdModel:
+    """Classe para gerenciar os anúncios no Firebase"""
     
-    // Número de game overs antes de mostrar anúncio de tela cheia
-    GAMEOVER_COUNT_THRESHOLD: 5,
-    
-    // Duração do anúncio de tela cheia em milissegundos (5 segundos)
-    FULLSCREEN_AD_DURATION: 5000,
-    
-    // URL da API para obter anúncios
-    API_URL: window.location.hostname.includes('localhost') 
-        ? 'http://localhost:5000/api'
-        : 'https://seu-servidor-de-producao.com/api',
-    
-    // Seletor para o elemento do jogo Unity
-    GAME_CONTAINER_SELECTOR: '#unity-container',
-    
-    // Seletor para o canvas do jogo Unity
-    GAME_CANVAS_SELECTOR: '#unity-canvas'
-};
-
-// Estado do sistema de anúncios
-const adSystem = {
-    // Anúncios carregados
-    bannerAds: [],
-    fullscreenAds: [],
-    
-    // Índice do banner atual
-    currentBannerIndex: 0,
-    
-    // Contador de game overs
-    gameOverCount: 0,
-    
-    // Intervalo de rotação do banner
-    bannerRotationInterval: null,
-    
-    // Elementos DOM
-    bannerContainer: null,
-    fullscreenContainer: null,
-    
-    // Instância do Unity
-    unityInstance: null,
-    
-    // Flag para verificar se estamos na tela de jogo
-    isInGameScreen: false,
-    
-    // Inicializa o sistema de anúncios
-    init: function() {
-        console.log('Inicializando sistema de anúncios...');
+    def __init__(self, firebase_ref):
+        """
+        Inicializa o modelo com a referência do Firebase
         
-        // Criar elementos de contêiner
-        this.createAdContainers();
+        Args:
+            firebase_ref: Referência para o nó 'ads' no Firebase
+        """
+        self.ref = firebase_ref
         
-        // Carregar anúncios do servidor
-        this.loadAds();
+    def get_banner_ads(self):
+        """
+        Obtém todos os anúncios de banner
         
-        // Configurar comunicação com o Unity
-        this.setupUnityConnection();
-        
-        // Verificar periodicamente se estamos na tela de jogo
-        setInterval(() => this.checkGameScreen(), 1000);
-    },
+        Returns:
+            list: Lista de anúncios de banner
+        """
+        try:
+            banner_ref = self.ref.child('bannerAds')
+            ads = banner_ref.get() or {}
+            return [{'id': key, **value} for key, value in ads.items()]
+        except Exception as e:
+            print(f"Erro ao obter banners: {str(e)}")
+            return []
     
-    // Cria os contêineres de anúncios
-    createAdContainers: function() {
-        // Criar contêiner de banner
-        this.bannerContainer = document.createElement('div');
-        this.bannerContainer.id = 'ad-banner-container';
-        this.bannerContainer.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 140px;
-            z-index: 1000;
-            display: none;
-            overflow: hidden;
-        `;
-        document.body.appendChild(this.bannerContainer);
+    def get_fullscreen_ads(self):
+        """
+        Obtém todos os anúncios de tela cheia
         
-        // Criar contêiner de anúncio de tela cheia
-        this.fullscreenContainer = document.createElement('div');
-        this.fullscreenContainer.id = 'ad-fullscreen-container';
-        this.fullscreenContainer.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2000;
-            display: none;
-            background-color: rgba(0, 0, 0, 0.8);
-            justify-content: center;
-            align-items: center;
-        `;
-        document.body.appendChild(this.fullscreenContainer);
-    },
+        Returns:
+            list: Lista de anúncios de tela cheia
+        """
+        try:
+            fullscreen_ref = self.ref.child('fullscreenAds')
+            ads = fullscreen_ref.get() or {}
+            return [{'id': key, **value} for key, value in ads.items()]
+        except Exception as e:
+            print(f"Erro ao obter anúncios de tela cheia: {str(e)}")
+            return []
     
-    // Carrega anúncios do servidor
-    loadAds: async function() {
-        try {
-            // Carregar banners
-            const bannerResponse = await fetch(`${CONFIG.API_URL}/ads/banner`);
-            const bannerData = await bannerResponse.json();
-            this.bannerAds = bannerData.ads || [];
+    def get_banner_ad(self, ad_id):
+        """
+        Obtém um anúncio de banner específico pelo ID
+        
+        Args:
+            ad_id (str): ID do anúncio
             
-            // Carregar anúncios de tela cheia
-            const fullscreenResponse = await fetch(`${CONFIG.API_URL}/ads/fullscreen`);
-            const fullscreenData = await fullscreenResponse.json();
-            this.fullscreenAds = fullscreenData.ads || [];
+        Returns:
+            dict: Dados do anúncio ou None se não encontrado
+        """
+        try:
+            banner_ref = self.ref.child(f'bannerAds/{ad_id}')
+            ad_data = banner_ref.get()
+            if ad_data:
+                return {'id': ad_id, **ad_data}
+            return None
+        except Exception as e:
+            print(f"Erro ao obter banner: {str(e)}")
+            return None
+    
+    def get_fullscreen_ad(self, ad_id):
+        """
+        Obtém um anúncio de tela cheia específico pelo ID
+        
+        Args:
+            ad_id (str): ID do anúncio
             
-            console.log(`Anúncios carregados: ${this.bannerAds.length} banners, ${this.fullscreenAds.length} tela cheia`);
+        Returns:
+            dict: Dados do anúncio ou None se não encontrado
+        """
+        try:
+            fullscreen_ref = self.ref.child(f'fullscreenAds/{ad_id}')
+            ad_data = fullscreen_ref.get()
+            if ad_data:
+                return {'id': ad_id, **ad_data}
+            return None
+        except Exception as e:
+            print(f"Erro ao obter anúncio de tela cheia: {str(e)}")
+            return None
+    
+    def add_banner_ad(self, image_url, link_url):
+        """
+        Adiciona um novo anúncio de banner
+        
+        Args:
+            image_url (str): URL da imagem no Imgur
+            link_url (str): URL de destino do anúncio
             
-            // Iniciar rotação de banners se houver anúncios
-            if (this.bannerAds.length > 0) {
-                this.startBannerRotation();
+        Returns:
+            str: ID do anúncio criado
+        """
+        try:
+            banner_ref = self.ref.child('bannerAds')
+            new_ad = {
+                'imageUrl': image_url,
+                'linkUrl': link_url,
+                'impressions': 0,
+                'clicks': 0,
+                'createdAt': datetime.now().isoformat(),
+                'lastShown': None
             }
-        } catch (error) {
-            console.error('Erro ao carregar anúncios:', error);
-        }
-    },
+            ad_ref = banner_ref.push(new_ad)
+            return ad_ref.key
+        except Exception as e:
+            print(f"Erro ao adicionar banner: {str(e)}")
+            return None
     
-    // Configura comunicação com o Unity
-    setupUnityConnection: function() {
-        // Aguardar a instância do Unity ser criada
-        window.addEventListener('unityInstance', (e) => {
-            this.unityInstance = e.detail;
-            console.log('Conexão com Unity estabelecida');
+    def add_fullscreen_ad(self, image_url, link_url):
+        """
+        Adiciona um novo anúncio de tela cheia
+        
+        Args:
+            image_url (str): URL da imagem no Imgur
+            link_url (str): URL de destino do anúncio
             
-            // Adicionar função para o Unity chamar quando ocorrer game over
-            window.gameOver = () => {
-                this.handleGameOver();
-            };
-        });
-    },
-    
-    // Verifica se estamos na tela de jogo
-    checkGameScreen: function() {
-        // Lógica para detectar se estamos na tela de jogo
-        // Esta é uma implementação simplificada, você pode precisar ajustar
-        // com base na estrutura específica do seu jogo
-        
-        // Exemplo: verificar se existe algum elemento específico da tela de jogo
-        const isInGame = document.querySelector('.game-screen-indicator') !== null;
-        
-        // Alternativamente, o Unity pode enviar mensagens para indicar a tela atual
-        
-        // Se mudou de estado
-        if (isInGame !== this.isInGameScreen) {
-            this.isInGameScreen = isInGame;
-            
-            if (isInGame) {
-                // Mostrar banner quando entrar na tela de jogo
-                this.showBanner();
-            } else {
-                // Esconder banner quando sair da tela de jogo
-                this.hideBanner();
+        Returns:
+            str: ID do anúncio criado
+        """
+        try:
+            fullscreen_ref = self.ref.child('fullscreenAds')
+            new_ad = {
+                'imageUrl': image_url,
+                'linkUrl': link_url,
+                'impressions': 0,
+                'clicks': 0,
+                'createdAt': datetime.now().isoformat(),
+                'lastShown': None
             }
-        }
-    },
+            ad_ref = fullscreen_ref.push(new_ad)
+            return ad_ref.key
+        except Exception as e:
+            print(f"Erro ao adicionar anúncio de tela cheia: {str(e)}")
+            return None
     
-    // Inicia a rotação de banners
-    startBannerRotation: function() {
-        // Limpar intervalo existente
-        if (this.bannerRotationInterval) {
-            clearInterval(this.bannerRotationInterval);
-        }
+    def update_banner_ad(self, ad_id, image_url, link_url):
+        """
+        Atualiza um anúncio de banner existente
         
-        // Mostrar o primeiro banner
-        this.showCurrentBanner();
-        
-        // Configurar intervalo para rotação
-        this.bannerRotationInterval = setInterval(() => {
-            this.rotateToNextBanner();
-        }, CONFIG.BANNER_ROTATION_INTERVAL);
-    },
-    
-    // Mostra o banner atual
-    showCurrentBanner: function() {
-        if (this.bannerAds.length === 0) return;
-        
-        const ad = this.bannerAds[this.currentBannerIndex];
-        
-        // Limpar contêiner
-        this.bannerContainer.innerHTML = '';
-        
-        // Criar elemento de banner
-        const banner = document.createElement('div');
-        banner.style.cssText = `
-            width: 100%;
-            height: 100%;
-            background-image: url('${ad.imageUrl}');
-            background-size: cover;
-            background-position: center;
-            cursor: pointer;
-            position: relative;
-        `;
-        
-        // Adicionar botão
-        const button = document.createElement('a');
-        button.href = ad.linkUrl;
-        button.target = '_blank';
-        button.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 123, 255, 0.7);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-family: Arial, sans-serif;
-        `;
-        
-        // Extrair domínio para o texto do botão
-        try {
-            const url = new URL(ad.linkUrl);
-            const domain = url.hostname.replace('www.', '');
-            button.textContent = `Visitar ${domain}`;
-        } catch (e) {
-            button.textContent = 'Visitar Site';
-        }
-        
-        banner.appendChild(button);
-        this.bannerContainer.appendChild(banner);
-        
-        // Registrar impressão
-        this.recordImpression(ad.id, 'banner');
-        
-        // Adicionar evento de clique para rastreamento
-        button.addEventListener('click', () => {
-            this.recordClick(ad.id, 'banner');
-        });
-    },
-    
-    // Rotaciona para o próximo banner
-    rotateToNextBanner: function() {
-        if (this.bannerAds.length <= 1) return;
-        
-        this.currentBannerIndex = (this.currentBannerIndex + 1) % this.bannerAds.length;
-        this.showCurrentBanner();
-    },
-    
-    // Mostra o banner
-    showBanner: function() {
-        if (this.bannerAds.length === 0) return;
-        this.bannerContainer.style.display = 'block';
-    },
-    
-    // Esconde o banner
-    hideBanner: function() {
-        this.bannerContainer.style.display = 'none';
-    },
-    
-    // Manipula evento de game over
-    handleGameOver: function() {
-        this.gameOverCount++;
-        
-        // Verificar se deve mostrar anúncio de tela cheia
-        if (this.gameOverCount >= CONFIG.GAMEOVER_COUNT_THRESHOLD) {
-            this.gameOverCount = 0; // Resetar contador
-            this.showFullscreenAd();
-        }
-    },
-    
-    // Mostra anúncio de tela cheia
-    showFullscreenAd: function() {
-        if (this.fullscreenAds.length === 0) return;
-        
-        // Selecionar um anúncio aleatório
-        const randomIndex = Math.floor(Math.random() * this.fullscreenAds.length);
-        const ad = this.fullscreenAds[randomIndex];
-        
-        // Limpar contêiner
-        this.fullscreenContainer.innerHTML = '';
-        
-        // Criar elemento de anúncio
-        const adElement = document.createElement('div');
-        adElement.style.cssText = `
-            width: 100%;
-            height: 100%;
-            max-width: 1080px;
-            max-height: 1920px;
-            background-image: url('${ad.imageUrl}');
-            background-size: contain;
-            background-position: center;
-            background-repeat: no-repeat;
-            position: relative;
-        `;
-        
-        // Adicionar botão
-        const button = document.createElement('a');
-        button.href = ad.linkUrl;
-        button.target = '_blank';
-        button.style.cssText = `
-            position: absolute;
-            bottom: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 123, 255, 0.7);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-family: Arial, sans-serif;
-            font-size: 18px;
-            text-align: center;
-            min-width: 200px;
-        `;
-        
-        // Extrair domínio para o texto do botão
-        try {
-            const url = new URL(ad.linkUrl);
-            const domain = url.hostname.replace('www.', '');
-            button.textContent = `Visitar ${domain}`;
-        } catch (e) {
-            button.textContent = 'Visitar Site';
-        }
-        
-        // Adicionar contador
-        const counter = document.createElement('div');
-        counter.style.cssText = `
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-family: Arial, sans-serif;
-        `;
-        counter.textContent = '5';
-        
-        adElement.appendChild(button);
-        adElement.appendChild(counter);
-        this.fullscreenContainer.appendChild(adElement);
-        
-        // Mostrar anúncio
-        this.fullscreenContainer.style.display = 'flex';
-        
-        // Pausar o jogo se possível
-        if (this.unityInstance && typeof this.unityInstance.SendMessage === 'function') {
-            this.unityInstance.SendMessage('GameManager', 'PauseGame');
-        }
-        
-        // Registrar impressão
-        this.recordImpression(ad.id, 'fullscreen');
-        
-        // Adicionar evento de clique para rastreamento
-        button.addEventListener('click', () => {
-            this.recordClick(ad.id, 'fullscreen');
-        });
-        
-        // Iniciar contador regressivo
-        let secondsLeft = 5;
-        const countdownInterval = setInterval(() => {
-            secondsLeft--;
-            counter.textContent = secondsLeft;
+        Args:
+            ad_id (str): ID do anúncio
+            image_url (str): Nova URL da imagem
+            link_url (str): Nova URL de destino
             
-            if (secondsLeft <= 0) {
-                clearInterval(countdownInterval);
-                this.hideFullscreenAd();
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            banner_ref = self.ref.child(f'bannerAds/{ad_id}')
+            
+            # Verificar se o anúncio existe
+            ad_data = banner_ref.get()
+            if not ad_data:
+                return False
+            
+            # Atualizar apenas os campos necessários
+            updates = {
+                'imageUrl': image_url,
+                'linkUrl': link_url,
+                'updatedAt': datetime.now().isoformat()
             }
-        }, 1000);
-        
-        // Fechar automaticamente após o tempo definido
-        setTimeout(() => {
-            clearInterval(countdownInterval);
-            this.hideFullscreenAd();
-        }, CONFIG.FULLSCREEN_AD_DURATION);
-    },
+            
+            banner_ref.update(updates)
+            return True
+        except Exception as e:
+            print(f"Erro ao atualizar banner: {str(e)}")
+            return False
     
-    // Esconde anúncio de tela cheia
-    hideFullscreenAd: function() {
-        this.fullscreenContainer.style.display = 'none';
+    def update_fullscreen_ad(self, ad_id, image_url, link_url):
+        """
+        Atualiza um anúncio de tela cheia existente
         
-        // Retomar o jogo se possível
-        if (this.unityInstance && typeof this.unityInstance.SendMessage === 'function') {
-            this.unityInstance.SendMessage('GameManager', 'ResumeGame');
-        }
-    },
+        Args:
+            ad_id (str): ID do anúncio
+            image_url (str): Nova URL da imagem
+            link_url (str): Nova URL de destino
+            
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            fullscreen_ref = self.ref.child(f'fullscreenAds/{ad_id}')
+            
+            # Verificar se o anúncio existe
+            ad_data = fullscreen_ref.get()
+            if not ad_data:
+                return False
+            
+            # Atualizar apenas os campos necessários
+            updates = {
+                'imageUrl': image_url,
+                'linkUrl': link_url,
+                'updatedAt': datetime.now().isoformat()
+            }
+            
+            fullscreen_ref.update(updates)
+            return True
+        except Exception as e:
+            print(f"Erro ao atualizar anúncio de tela cheia: {str(e)}")
+            return False
     
-    // Registra impressão de anúncio
-    recordImpression: async function(adId, adType) {
-        try {
-            await fetch(`${CONFIG.API_URL}/ads/impression`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+    def delete_banner_ad(self, ad_id):
+        """
+        Exclui um anúncio de banner
+        
+        Args:
+            ad_id (str): ID do anúncio
+            
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            banner_ref = self.ref.child(f'bannerAds/{ad_id}')
+            
+            # Verificar se o anúncio existe
+            ad_data = banner_ref.get()
+            if not ad_data:
+                return False
+            
+            # Excluir o anúncio
+            banner_ref.delete()
+            return True
+        except Exception as e:
+            print(f"Erro ao excluir banner: {str(e)}")
+            return False
+    
+    def delete_fullscreen_ad(self, ad_id):
+        """
+        Exclui um anúncio de tela cheia
+        
+        Args:
+            ad_id (str): ID do anúncio
+            
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            fullscreen_ref = self.ref.child(f'fullscreenAds/{ad_id}')
+            
+            # Verificar se o anúncio existe
+            ad_data = fullscreen_ref.get()
+            if not ad_data:
+                return False
+            
+            # Excluir o anúncio
+            fullscreen_ref.delete()
+            return True
+        except Exception as e:
+            print(f"Erro ao excluir anúncio de tela cheia: {str(e)}")
+            return False
+    
+    def record_impression(self, ad_id, ad_type):
+        """
+        Registra uma impressão de anúncio
+        
+        Args:
+            ad_id (str): ID do anúncio
+            ad_type (str): Tipo do anúncio ('banner' ou 'fullscreen')
+            
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            type_path = 'bannerAds' if ad_type == 'banner' else 'fullscreenAds'
+            ad_ref = self.ref.child(f"{type_path}/{ad_id}")
+            
+            # Obter contagem atual
+            ad_data = ad_ref.get() or {}
+            current_count = ad_data.get('impressions', 0)
+            
+            # Atualizar contagem e timestamp
+            updates = {
+                'impressions': current_count + 1,
+                'lastShown': datetime.now().isoformat()
+            }
+            
+            ad_ref.update(updates)
+            return True
+        except Exception as e:
+            print(f"Erro ao registrar impressão: {str(e)}")
+            return False
+    
+    def record_click(self, ad_id, ad_type):
+        """
+        Registra um clique em anúncio
+        
+        Args:
+            ad_id (str): ID do anúncio
+            ad_type (str): Tipo do anúncio ('banner' ou 'fullscreen')
+            
+        Returns:
+            bool: True se bem-sucedido, False caso contrário
+        """
+        try:
+            type_path = 'bannerAds' if ad_type == 'banner' else 'fullscreenAds'
+            ad_ref = self.ref.child(f"{type_path}/{ad_id}")
+            
+            # Obter contagem atual
+            ad_data = ad_ref.get() or {}
+            current_count = ad_data.get('clicks', 0)
+            
+            # Atualizar contagem
+            ad_ref.update({'clicks': current_count + 1})
+            return True
+        except Exception as e:
+            print(f"Erro ao registrar clique: {str(e)}")
+            return False
+    
+    def get_metrics(self):
+        """
+        Obtém métricas de todos os anúncios
+        
+        Returns:
+            dict: Métricas de anúncios
+        """
+        try:
+            banner_ads = self.get_banner_ads()
+            fullscreen_ads = self.get_fullscreen_ads()
+            
+            total_banner_impressions = sum(ad.get('impressions', 0) for ad in banner_ads)
+            total_banner_clicks = sum(ad.get('clicks', 0) for ad in banner_ads)
+            
+            total_fullscreen_impressions = sum(ad.get('impressions', 0) for ad in fullscreen_ads)
+            total_fullscreen_clicks = sum(ad.get('clicks', 0) for ad in fullscreen_ads)
+            
+            banner_ctr = (total_banner_clicks / total_banner_impressions * 100) if total_banner_impressions > 0 else 0
+            fullscreen_ctr = (total_fullscreen_clicks / total_fullscreen_impressions * 100) if total_fullscreen_impressions > 0 else 0
+            
+            return {
+                'banner': {
+                    'ads_count': len(banner_ads),
+                    'total_impressions': total_banner_impressions,
+                    'total_clicks': total_banner_clicks,
+                    'ctr': round(banner_ctr, 2),
+                    'ads': banner_ads
                 },
-                body: JSON.stringify({
-                    adId: adId,
-                    adType: adType
-                })
-            });
-        } catch (error) {
-            console.error('Erro ao registrar impressão:', error);
-        }
-    },
-    
-    // Registra clique em anúncio
-    recordClick: async function(adId, adType) {
-        try {
-            await fetch(`${CONFIG.API_URL}/ads/click`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    adId: adId,
-                    adType: adType
-                })
-            });
-        } catch (error) {
-            console.error('Erro ao registrar clique:', error);
-        }
-    }
-};
-
-// Inicializar sistema de anúncios quando a página carregar
-document.addEventListener('DOMContentLoaded', () => {
-    adSystem.init();
-});
-
-// Expor funções para o Unity chamar
-window.showBanner = () => adSystem.showBanner();
-window.hideBanner = () => adSystem.hideBanner();
-window.gameOver = () => adSystem.handleGameOver();
-window.showFullscreenAd = () => adSystem.showFullscreenAd();
+                'fullscreen': {
+                    'ads_count': len(fullscreen_ads),
+                    'total_impressions': total_fullscreen_impressions,
+                    'total_clicks': total_fullscreen_clicks,
+                    'ctr': round(fullscreen_ctr, 2),
+                    'ads': fullscreen_ads
+                }
+            }
+        except Exception as e:
+            print(f"Erro ao obter métricas: {str(e)}")
+            return {
+                'banner': {'ads_count': 0, 'total_impressions': 0, 'total_clicks': 0, 'ctr': 0, 'ads': []},
+                'fullscreen': {'ads_count': 0, 'total_impressions': 0, 'total_clicks': 0, 'ctr': 0, 'ads': []}
+            }
