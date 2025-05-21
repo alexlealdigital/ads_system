@@ -39,21 +39,22 @@ def init_firebase():
     """Inicializa a conexão com o Firebase"""
     if not firebase_admin._apps:
         try:
-            print("Tentando inicializar Firebase...")
-            print(f"PROJECT_ID: {os.getenv('FIREBASE_PROJECT_ID')}")
-            # Não imprima a chave privada completa, apenas verifique se existe
-            print(f"PRIVATE_KEY exists: {'FIREBASE_PRIVATE_KEY' in os.environ}")
+            # Processar a chave privada para garantir o formato correto
+            private_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
+            if private_key.startswith('"') and private_key.endswith('"'):
+                private_key = private_key[1:-1]
+            private_key = private_key.replace('\\n', '\n')
             
             cred = credentials.Certificate({
-                "type": os.getenv("FIREBASE_TYPE"),
+                "type": os.getenv("FIREBASE_TYPE", "service_account"),
                 "project_id": os.getenv("FIREBASE_PROJECT_ID"),
                 "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-                "private_key": os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n') if os.getenv("FIREBASE_PRIVATE_KEY") else "",
+                "private_key": private_key,
                 "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
                 "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-                "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
-                "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
-                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER"),
+                "auth_uri": os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth" ),
+                "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token" ),
+                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER", "https://www.googleapis.com/oauth2/v1/certs" ),
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
             })
             
@@ -66,7 +67,6 @@ def init_firebase():
             print(f"🔥 ERRO Firebase: {str(e)}")
             return False
     return True
-
 
 # Instância do modelo de anúncios
 ads_model = None
