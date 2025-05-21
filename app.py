@@ -1,23 +1,13 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
 """
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import os
+import sys
 import logging
 from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
-import json
-from models.ads import AdModel
-
-app = Flask(__name__ )
-CORS(app)  # Habilite CORS para toda a aplicação
-
-
-
-# Importar modelo de anúncios
 from models.ads import AdModel
 
 # Configuração de logging
@@ -27,16 +17,8 @@ logger = logging.getLogger(__name__)
 # Inicialização da aplicação Flask
 app = Flask(__name__)
 
-# Configuração de CORS
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["*"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True,
-        "max_age": 86400
-    }
-})
+# Configuração de CORS - simplificada para permitir todas as origens
+CORS(app)
 
 # Inicialização do Firebase
 def init_firebase():
@@ -56,19 +38,19 @@ def init_firebase():
                 "private_key": private_key,
                 "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
                 "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-                "auth_uri": os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth" ),
-                "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token" ),
-                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER", "https://www.googleapis.com/oauth2/v1/certs" ),
+                "auth_uri": os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
+                "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER", "https://www.googleapis.com/oauth2/v1/certs"),
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
             })
             
             firebase_admin.initialize_app(cred, {
                 'databaseURL': os.getenv('FIREBASE_DB_URL')
             })
-            print("✅ Firebase inicializado com sucesso")
+            logger.info("✅ Firebase inicializado com sucesso")
             return True
         except Exception as e:
-            print(f"🔥 ERRO Firebase: {str(e)}")
+            logger.error(f"🔥 ERRO Firebase: {str(e)}")
             return False
     return True
 
@@ -86,33 +68,33 @@ def init_ads_model():
     return False
 
 # Rotas para API de anúncios
-@app.route('/api/ads/banner', methods=['GET'])
-def get_banner_ads():
+@app.route('/api/banners', methods=['GET'])
+def get_banners():
     """Retorna todos os anúncios de banner"""
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
     try:
         ads = ads_model.get_banner_ads()
-        return jsonify({"ads": ads})
+        return jsonify(ads)
     except Exception as e:
         logger.error(f"Erro ao obter banners: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ads/fullscreen', methods=['GET'])
-def get_fullscreen_ads():
+@app.route('/api/fullscreen', methods=['GET'])
+def get_fullscreen():
     """Retorna todos os anúncios de tela cheia"""
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
     try:
         ads = ads_model.get_fullscreen_ads()
-        return jsonify({"ads": ads})
+        return jsonify(ads)
     except Exception as e:
         logger.error(f"Erro ao obter anúncios de tela cheia: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ads/impression', methods=['POST', 'OPTIONS'])
+@app.route('/api/impression', methods=['POST', 'OPTIONS'])
 def record_impression():
     """Registra uma impressão de anúncio"""
     if request.method == 'OPTIONS':
@@ -124,7 +106,7 @@ def record_impression():
     try:
         data = request.get_json()
         ad_id = data.get('adId')
-        ad_type = data.get('adType')
+        ad_type = data.get('type', data.get('adType'))  # Compatibilidade com ambos os formatos
         
         if not ad_id or not ad_type:
             return jsonify({"error": "ID do anúncio e tipo são obrigatórios"}), 400
@@ -142,7 +124,7 @@ def record_impression():
         logger.error(f"Erro ao registrar impressão: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ads/click', methods=['POST', 'OPTIONS'])
+@app.route('/api/click', methods=['POST', 'OPTIONS'])
 def record_click():
     """Registra um clique em anúncio"""
     if request.method == 'OPTIONS':
@@ -154,7 +136,7 @@ def record_click():
     try:
         data = request.get_json()
         ad_id = data.get('adId')
-        ad_type = data.get('adType')
+        ad_type = data.get('type', data.get('adType'))  # Compatibilidade com ambos os formatos
         
         if not ad_id or not ad_type:
             return jsonify({"error": "ID do anúncio e tipo são obrigatórios"}), 400
@@ -343,6 +325,6 @@ def health_check():
 # Inicialização da aplicação
 if __name__ == '__main__':
     if init_firebase():
-        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=False)
     else:
         logger.critical("❌ Servidor não iniciado: Firebase falhou")
