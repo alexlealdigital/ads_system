@@ -34,17 +34,34 @@ def init_firebase():
     """Inicializa a conexão com o Firebase"""
     if not firebase_admin._apps:
         try:
-            # Usar arquivo JSON em vez de variáveis de ambiente
-            cred = credentials.Certificate('firebase-credentials.json')
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://deepfish-counter-default-rtdb.firebaseio.com'
+            print("Tentando inicializar Firebase...")
+            print(f"PROJECT_ID: {os.getenv('FIREBASE_PROJECT_ID')}")
+            # Não imprima a chave privada completa, apenas verifique se existe
+            print(f"PRIVATE_KEY exists: {'FIREBASE_PRIVATE_KEY' in os.environ}")
+            
+            cred = credentials.Certificate({
+                "type": os.getenv("FIREBASE_TYPE"),
+                "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+                "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+                "private_key": os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n') if os.getenv("FIREBASE_PRIVATE_KEY") else "",
+                "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+                "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+                "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+                "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER"),
+                "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
             })
-            logger.info("✅ Firebase inicializado")
+            
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': os.getenv('FIREBASE_DB_URL')
+            })
+            print("✅ Firebase inicializado com sucesso")
             return True
         except Exception as e:
-            logger.error(f"🔥 ERRO Firebase: {str(e)}")
+            print(f"🔥 ERRO Firebase: {str(e)}")
             return False
     return True
+
 
 # Instância do modelo de anúncios
 ads_model = None
