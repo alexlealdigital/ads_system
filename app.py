@@ -1,6 +1,6 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
-Versão corrigida e otimizada para deploy no Render
+Versão corrigida e otimizada para deploy no Render usando variáveis de ambiente
 """
 import os
 import sys
@@ -23,24 +23,38 @@ app = Flask(__name__)
 # Configuração de CORS - simplificada para permitir todas as origens
 CORS(app)
 
-# Inicialização do Firebase
+# Inicialização do Firebase usando variáveis de ambiente
 def init_firebase():
-    """Inicializa a conexão com o Firebase"""
+    """Inicializa a conexão com o Firebase usando variáveis de ambiente"""
     if not firebase_admin._apps:
         try:
-            # Verificar se o arquivo de credenciais existe
-            cred_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'firebase-credentials.json')
-            if os.path.exists(cred_file):
-                # Usar arquivo JSON para credenciais
-                cred = credentials.Certificate(cred_file)
-                firebase_admin.initialize_app(cred, {
-                    'databaseURL': 'https://deepfish-counter-default-rtdb.firebaseio.com'
-                })
-                logger.info("✅ Firebase inicializado com sucesso usando arquivo de credenciais")
-                return True
-            else:
-                logger.error(f"❌ Arquivo de credenciais não encontrado: {cred_file}")
-                return False
+            # Processar a chave privada para garantir o formato correto
+            private_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
+            if private_key.startswith('"') and private_key.endswith('"'):
+                private_key = private_key[1:-1]
+            private_key = private_key.replace('\\n', '\n')
+            
+            # Criar credenciais a partir de variáveis de ambiente
+            cred = credentials.Certificate({
+                "type": os.getenv("FIREBASE_TYPE", "service_account"),
+                "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+                "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+                "private_key": private_key,
+                "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+                "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+                "auth_uri": os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
+                "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER", "https://www.googleapis.com/oauth2/v1/certs"),
+                "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
+            })
+            
+            # Inicializar Firebase
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': os.getenv('FIREBASE_DB_URL')
+            })
+            
+            logger.info("✅ Firebase inicializado com sucesso usando variáveis de ambiente")
+            return True
         except Exception as e:
             logger.error(f"🔥 ERRO Firebase: {str(e)}")
             return False
