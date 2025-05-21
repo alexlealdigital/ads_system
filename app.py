@@ -1,14 +1,44 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
-Versão simplificada e otimizada para evitar erros
+Versão simplificada e otimizada para evitar erros de importação no Render
 """
 import os
 import logging
+import sys
 from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
-from models.ads import AdModel
+
+# Adicionar o diretório atual ao path do Python para garantir que os módulos sejam encontrados
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Agora importamos o modelo de anúncios
+try:
+    from models.ads import AdModel
+    print("✅ Módulo models.ads importado com sucesso")
+except ImportError as e:
+    print(f"❌ Erro ao importar models.ads: {str(e)}")
+    # Tentar importação alternativa
+    try:
+        import models.ads
+        AdModel = models.ads.AdModel
+        print("✅ Módulo models.ads importado com caminho alternativo")
+    except ImportError as e2:
+        print(f"❌ Erro na importação alternativa: {str(e2)}")
+        # Último recurso: verificar se o arquivo existe
+        models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+        ads_file = os.path.join(models_dir, 'ads.py')
+        print(f"Verificando existência do arquivo: {ads_file}")
+        if os.path.exists(ads_file):
+            print(f"✅ Arquivo ads.py existe em: {ads_file}")
+        else:
+            print(f"❌ Arquivo ads.py não encontrado em: {ads_file}")
+            if os.path.exists(models_dir):
+                print(f"✅ Diretório models existe em: {models_dir}")
+                print(f"Arquivos no diretório models: {os.listdir(models_dir)}")
+            else:
+                print(f"❌ Diretório models não encontrado em: {models_dir}")
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
