@@ -1,12 +1,17 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
 """
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import os
 import logging
 from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
+
+
+
 
 # Importar modelo de anúncios
 from models.ads import AdModel
