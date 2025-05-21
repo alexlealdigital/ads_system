@@ -1,6 +1,7 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
 Versão corrigida e otimizada para deploy no Render usando variáveis de ambiente
+Com configuração CORS específica para permitir o domínio do Netlify
 """
 import os
 import sys
@@ -20,8 +21,23 @@ logger = logging.getLogger(__name__)
 # Inicialização da aplicação Flask
 app = Flask(__name__)
 
-# Configuração de CORS - simplificada para permitir todas as origens
-CORS(app)
+# Configuração de CORS - específica para o domínio do Netlify
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "https://jade-lamington-63db57.netlify.app",
+            "https://682d482f8ce48197b4658282--jade-lamington-63db57.netlify.app",
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "*"  # Mantido como fallback
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+        "expose_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 86400
+    }
+})
 
 # Inicialização do Firebase usando variáveis de ambiente
 def init_firebase():
@@ -97,10 +113,22 @@ def init_ads_model():
             return False
     return False
 
+# Middleware para adicionar headers CORS em todas as respostas
+@app.after_request
+def add_cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 # Rotas para API de anúncios - CORRIGIDAS para compatibilidade com o frontend
-@app.route('/api/banners', methods=['GET'])
+@app.route('/api/banners', methods=['GET', 'OPTIONS'])
 def get_banners():
     """Retorna todos os anúncios de banner"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
@@ -111,9 +139,12 @@ def get_banners():
         logger.error(f"Erro ao obter banners: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/fullscreen', methods=['GET'])
+@app.route('/api/fullscreen', methods=['GET', 'OPTIONS'])
 def get_fullscreen():
     """Retorna todos os anúncios de tela cheia"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if not init_ads_model():
         return jsonify({"error": "Falha ao inicializar Firebase"}), 500
     
@@ -125,14 +156,18 @@ def get_fullscreen():
         return jsonify({"error": str(e)}), 500
 
 # Rotas de compatibilidade para versões anteriores da API
-@app.route('/api/ads/banner', methods=['GET'])
+@app.route('/api/ads/banner', methods=['GET', 'OPTIONS'])
 def get_banner_ads_compat():
     """Rota de compatibilidade para versões anteriores"""
+    if request.method == 'OPTIONS':
+        return '', 200
     return get_banners()
 
-@app.route('/api/ads/fullscreen', methods=['GET'])
+@app.route('/api/ads/fullscreen', methods=['GET', 'OPTIONS'])
 def get_fullscreen_ads_compat():
     """Rota de compatibilidade para versões anteriores"""
+    if request.method == 'OPTIONS':
+        return '', 200
     return get_fullscreen()
 
 @app.route('/api/impression', methods=['POST', 'OPTIONS'])
@@ -199,11 +234,15 @@ def record_click():
 @app.route('/api/ads/impression', methods=['POST', 'OPTIONS'])
 def record_impression_compat():
     """Rota de compatibilidade para versões anteriores"""
+    if request.method == 'OPTIONS':
+        return '', 200
     return record_impression()
 
 @app.route('/api/ads/click', methods=['POST', 'OPTIONS'])
 def record_click_compat():
     """Rota de compatibilidade para versões anteriores"""
+    if request.method == 'OPTIONS':
+        return '', 200
     return record_click()
 
 # Rotas para o dashboard
