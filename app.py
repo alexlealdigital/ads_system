@@ -1,8 +1,8 @@
 """
 Aplicação principal para o sistema de anúncios e dashboard
+Versão simplificada e otimizada para evitar erros
 """
 import os
-import sys
 import logging
 from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
@@ -17,8 +17,11 @@ logger = logging.getLogger(__name__)
 # Inicialização da aplicação Flask
 app = Flask(__name__)
 
-# Configuração de CORS - simplificada para permitir todas as origens
+# Configuração de CORS - permitir todas as origens
 CORS(app)
+
+# Instância do modelo de anúncios
+ads_model = None
 
 # Inicialização do Firebase
 def init_firebase():
@@ -31,6 +34,7 @@ def init_firebase():
                 private_key = private_key[1:-1]
             private_key = private_key.replace('\\n', '\n')
             
+            # Criar credenciais
             cred = credentials.Certificate({
                 "type": os.getenv("FIREBASE_TYPE", "service_account"),
                 "project_id": os.getenv("FIREBASE_PROJECT_ID"),
@@ -44,9 +48,11 @@ def init_firebase():
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
             })
             
+            # Inicializar Firebase
             firebase_admin.initialize_app(cred, {
                 'databaseURL': os.getenv('FIREBASE_DB_URL')
             })
+            
             logger.info("✅ Firebase inicializado com sucesso")
             return True
         except Exception as e:
@@ -54,20 +60,21 @@ def init_firebase():
             return False
     return True
 
-# Instância do modelo de anúncios
-ads_model = None
-
 # Inicialização do modelo de anúncios
 def init_ads_model():
     """Inicializa o modelo de anúncios"""
     global ads_model
     if init_firebase():
-        ads_ref = db.reference('ads')
-        ads_model = AdModel(ads_ref)
-        return True
+        try:
+            ads_ref = db.reference('ads')
+            ads_model = AdModel(ads_ref)
+            return True
+        except Exception as e:
+            logger.error(f"🔥 ERRO ao inicializar modelo de anúncios: {str(e)}")
+            return False
     return False
 
-# Rotas para API de anúncios
+# Rotas para API de anúncios - CORRIGIDAS para compatibilidade com o frontend
 @app.route('/api/banners', methods=['GET'])
 def get_banners():
     """Retorna todos os anúncios de banner"""
