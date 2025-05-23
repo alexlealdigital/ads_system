@@ -27,8 +27,7 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/api/*": {
         "origins": [
-            "https://jade-lamington-63db57.netlify.app",
-            "https://682d482f8ce48197b4658282--jade-lamington-63db57.netlify.app",
+            "https://genuine-daifuku-69a3dd.netlify.app",            
             "http://localhost:3000", # Para desenvolvimento frontend local
             "http://localhost:5000", # Para desenvolvimento backend local, se necessário
             # "*" # Mantenha comentado ou remova para produção
