@@ -1,8 +1,4 @@
 """
-Pacote de modelos para o sistema de anúncios
-Este arquivo __init__.py garante que o diretório models seja reconhecido como um pacote Python
+Pacote de modelos para o sistema de anúncios.
 """
-
-from models.ads import AdModel
-
-__all__ = ['AdModel']
+# Este arquivo é necessário para que o Python reconheça o diretório como um pacote
