@@ -7,7 +7,7 @@ import sys
 import json
 import logging
 import datetime
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_cors import CORS
 
 # Configurar logging
@@ -16,6 +16,7 @@ logger = logging.getLogger('app')
 
 # Inicializar Flask
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'ads_system_secret_key')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Adicionar headers CORS em todas as respostas
@@ -37,46 +38,58 @@ except ImportError as e:
     logger.error(f"❌ Erro ao importar models.ads: {e}")
     # Definir classe AdModel localmente como fallback
     class AdModel:
-        def __init__(self, data_file=None):
-            self.banners = []
-            self.fullscreen_ads = []
-            self.impressions = {}
-            self.clicks = {}
-            self.data_file = data_file or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'ads_data.json')
-            self.ensure_data_dir()
-            self.load_data()
-        
-        def ensure_data_dir(self):
-            data_dir = os.path.dirname(self.data_file)
+        def __init__(self, data_dir='data', data_file=None):
+            self.data_dir = data_dir
+            self.banners_file = os.path.join(data_dir, 'banners.json')
+            self.fullscreen_file = os.path.join(data_dir, 'fullscreen.json')
+            self.stats_file = os.path.join(data_dir, 'stats.json')
+            
+            # Criar diretório de dados se não existir
             if not os.path.exists(data_dir):
                 os.makedirs(data_dir)
+            
+            # Inicializar arquivos se não existirem
+            self._init_file(self.banners_file, [])
+            self._init_file(self.fullscreen_file, [])
+            self._init_file(self.stats_file, {'impressions': {}, 'clicks': {}})
         
-        def load_data(self):
-            if os.path.exists(self.data_file):
-                try:
-                    with open(self.data_file, 'r') as f:
-                        data = json.load(f)
-                        self.banners = data.get('banners', [])
-                        self.fullscreen_ads = data.get('fullscreen_ads', [])
-                        self.impressions = data.get('impressions', {})
-                        self.clicks = data.get('clicks', {})
-                except Exception as e:
-                    logger.error(f"❌ Erro ao carregar dados: {e}")
+        def _init_file(self, file_path, default_data):
+            if not os.path.exists(file_path):
+                with open(file_path, 'w') as f:
+                    json.dump(default_data, f)
         
-        def save_data(self):
+        def _load_data(self, file_path):
             try:
-                with open(self.data_file, 'w') as f:
-                    json.dump({
-                        'banners': self.banners,
-                        'fullscreen_ads': self.fullscreen_ads,
-                        'impressions': self.impressions,
-                        'clicks': self.clicks
-                    }, f, indent=2)
+                with open(file_path, 'r') as f:
+                    return json.load(f)
             except Exception as e:
-                logger.error(f"❌ Erro ao salvar dados: {e}")
+                logger.error(f"Erro ao carregar dados de {file_path}: {str(e)}")
+                if file_path.endswith('stats.json'):
+                    return {'impressions': {}, 'clicks': {}}
+                return []
+        
+        def _save_data(self, file_path, data):
+            try:
+                with open(file_path, 'w') as f:
+                    json.dump(data, f, indent=2)
+                return True
+            except Exception as e:
+                logger.error(f"Erro ao salvar dados em {file_path}: {str(e)}")
+                return False
+        
+        def get_banners(self):
+            return self._load_data(self.banners_file)
+        
+        def get_fullscreen_ads(self):
+            return self._load_data(self.fullscreen_file)
         
         def add_banner(self, title, image_url, target_url):
-            banner_id = str(len(self.banners) + 1)
+            banners = self.get_banners()
+            
+            # Gerar ID único
+            banner_id = str(len(banners) + 1)
+            
+            # Criar banner
             banner = {
                 'id': banner_id,
                 'title': title,
@@ -84,14 +97,22 @@ except ImportError as e:
                 'targetUrl': target_url,
                 'createdAt': datetime.datetime.now().isoformat()
             }
-            self.banners.append(banner)
-            self.impressions[f"banner_{banner_id}"] = 0
-            self.clicks[f"banner_{banner_id}"] = 0
-            self.save_data()
+            
+            # Adicionar banner à lista
+            banners.append(banner)
+            
+            # Salvar lista atualizada
+            self._save_data(self.banners_file, banners)
+            
             return banner
         
         def add_fullscreen_ad(self, title, image_url, target_url):
-            ad_id = str(len(self.fullscreen_ads) + 1)
+            ads = self.get_fullscreen_ads()
+            
+            # Gerar ID único
+            ad_id = str(len(ads) + 1)
+            
+            # Criar anúncio
             ad = {
                 'id': ad_id,
                 'title': title,
@@ -99,29 +120,135 @@ except ImportError as e:
                 'targetUrl': target_url,
                 'createdAt': datetime.datetime.now().isoformat()
             }
-            self.fullscreen_ads.append(ad)
-            self.impressions[f"fullscreen_{ad_id}"] = 0
-            self.clicks[f"fullscreen_{ad_id}"] = 0
-            self.save_data()
+            
+            # Adicionar anúncio à lista
+            ads.append(ad)
+            
+            # Salvar lista atualizada
+            self._save_data(self.fullscreen_file, ads)
+            
             return ad
         
-        def get_banners(self):
-            return self.banners
+        def update_banner(self, banner_id, title, image_url, target_url):
+            banners = self.get_banners()
+            
+            for i, banner in enumerate(banners):
+                if banner['id'] == banner_id:
+                    banners[i]['title'] = title
+                    banners[i]['imageUrl'] = image_url
+                    banners[i]['targetUrl'] = target_url
+                    banners[i]['updatedAt'] = datetime.datetime.now().isoformat()
+                    
+                    # Salvar lista atualizada
+                    self._save_data(self.banners_file, banners)
+                    return banners[i]
+            
+            return None
         
-        def get_fullscreen_ads(self):
-            return self.fullscreen_ads
+        def update_fullscreen_ad(self, ad_id, title, image_url, target_url):
+            ads = self.get_fullscreen_ads()
+            
+            for i, ad in enumerate(ads):
+                if ad['id'] == ad_id:
+                    ads[i]['title'] = title
+                    ads[i]['imageUrl'] = image_url
+                    ads[i]['targetUrl'] = target_url
+                    ads[i]['updatedAt'] = datetime.datetime.now().isoformat()
+                    
+                    # Salvar lista atualizada
+                    self._save_data(self.fullscreen_file, ads)
+                    return ads[i]
+            
+            return None
+        
+        def delete_banner(self, banner_id):
+            banners = self.get_banners()
+            
+            for i, banner in enumerate(banners):
+                if banner['id'] == banner_id:
+                    # Remover banner da lista
+                    del banners[i]
+                    
+                    # Salvar lista atualizada
+                    self._save_data(self.banners_file, banners)
+                    return True
+            
+            return False
+        
+        def delete_fullscreen_ad(self, ad_id):
+            ads = self.get_fullscreen_ads()
+            
+            for i, ad in enumerate(ads):
+                if ad['id'] == ad_id:
+                    # Remover anúncio da lista
+                    del ads[i]
+                    
+                    # Salvar lista atualizada
+                    self._save_data(self.fullscreen_file, ads)
+                    return True
+            
+            return False
+        
+        def get_banner(self, banner_id):
+            banners = self.get_banners()
+            
+            for banner in banners:
+                if banner['id'] == banner_id:
+                    return banner
+            
+            return None
+        
+        def get_fullscreen_ad(self, ad_id):
+            ads = self.get_fullscreen_ads()
+            
+            for ad in ads:
+                if ad['id'] == ad_id:
+                    return ad
+            
+            return None
         
         def record_impression(self, ad_id, ad_type):
+            stats = self._load_data(self.stats_file)
+            
+            # Inicializar contadores se necessário
+            if 'impressions' not in stats:
+                stats['impressions'] = {}
+            
             key = f"{ad_type}_{ad_id}"
-            self.impressions[key] = self.impressions.get(key, 0) + 1
-            self.save_data()
-            return self.impressions[key]
+            
+            if key not in stats['impressions']:
+                stats['impressions'][key] = 0
+            
+            # Incrementar contador
+            stats['impressions'][key] += 1
+            
+            # Salvar estatísticas atualizadas
+            self._save_data(self.stats_file, stats)
+            
+            return stats['impressions'][key]
         
         def record_click(self, ad_id, ad_type):
+            stats = self._load_data(self.stats_file)
+            
+            # Inicializar contadores se necessário
+            if 'clicks' not in stats:
+                stats['clicks'] = {}
+            
             key = f"{ad_type}_{ad_id}"
-            self.clicks[key] = self.clicks.get(key, 0) + 1
-            self.save_data()
-            return self.clicks[key]
+            
+            if key not in stats['clicks']:
+                stats['clicks'][key] = 0
+            
+            # Incrementar contador
+            stats['clicks'][key] += 1
+            
+            # Salvar estatísticas atualizadas
+            self._save_data(self.stats_file, stats)
+            
+            return stats['clicks'][key]
+        
+        def get_stats(self):
+            return self._load_data(self.stats_file)
         
         def get_metrics(self):
             # Preparar métricas para banners
@@ -129,11 +256,12 @@ except ImportError as e:
             total_banner_impressions = 0
             total_banner_clicks = 0
             
-            for banner in self.banners:
+            for banner in self.get_banners():
                 banner_id = banner['id']
                 key = f"banner_{banner_id}"
-                impressions = self.impressions.get(key, 0)
-                clicks = self.clicks.get(key, 0)
+                stats = self.get_stats()
+                impressions = stats.get('impressions', {}).get(key, 0)
+                clicks = stats.get('clicks', {}).get(key, 0)
                 
                 total_banner_impressions += impressions
                 total_banner_clicks += clicks
@@ -156,11 +284,12 @@ except ImportError as e:
             total_fullscreen_impressions = 0
             total_fullscreen_clicks = 0
             
-            for ad in self.fullscreen_ads:
+            for ad in self.get_fullscreen_ads():
                 ad_id = ad['id']
                 key = f"fullscreen_{ad_id}"
-                impressions = self.impressions.get(key, 0)
-                clicks = self.clicks.get(key, 0)
+                stats = self.get_stats()
+                impressions = stats.get('impressions', {}).get(key, 0)
+                clicks = stats.get('clicks', {}).get(key, 0)
                 
                 total_fullscreen_impressions += impressions
                 total_fullscreen_clicks += clicks
@@ -182,14 +311,14 @@ except ImportError as e:
             return {
                 'banner': {
                     'ads': banner_ads,
-                    'ads_count': len(self.banners),
+                    'ads_count': len(self.get_banners()),
                     'total_impressions': total_banner_impressions,
                     'total_clicks': total_banner_clicks,
                     'ctr': banner_ctr
                 },
                 'fullscreen': {
                     'ads': fullscreen_ads,
-                    'ads_count': len(self.fullscreen_ads),
+                    'ads_count': len(self.get_fullscreen_ads()),
                     'total_impressions': total_fullscreen_impressions,
                     'total_clicks': total_fullscreen_clicks,
                     'ctr': fullscreen_ctr
@@ -202,8 +331,7 @@ try:
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     
-    data_file = os.path.join(data_dir, 'ads_data.json')
-    ads_model = AdModel(data_file)
+    ads_model = AdModel(data_dir)
     logger.info("✅ Modelo de anúncios inicializado com sucesso.")
     
     # Adicionar banners e anúncios de exemplo se não existirem
@@ -218,7 +346,7 @@ try:
     if not ads_model.get_fullscreen_ads():
         ads_model.add_fullscreen_ad(
             "Anúncio de Tela Cheia de Exemplo", 
-            "https://placehold.co/1080x1920/blue/white?text=Anuncio+Tela+Cheia", 
+            "https://placehold.co/360x640/blue/white?text=Anuncio+Tela+Cheia", 
             "https://alexlealdigital.github.io"
         )
         logger.info("✅ Anúncio de tela cheia de exemplo adicionado.")
@@ -305,7 +433,7 @@ def dashboard():
         logger.error(f"Erro ao renderizar dashboard: {e}")
         return render_template('error.html', message=str(e))
 
-@app.route('/add/banner', methods=['GET', 'POST'])
+@app.route('/add-banner', methods=['GET', 'POST'])
 def add_banner():
     if request.method == 'POST':
         title = request.form.get('title')
@@ -320,7 +448,7 @@ def add_banner():
     
     return render_template('add_banner.html')
 
-@app.route('/add/fullscreen', methods=['GET', 'POST'])
+@app.route('/add-fullscreen', methods=['GET', 'POST'])
 def add_fullscreen():
     if request.method == 'POST':
         title = request.form.get('title')
@@ -334,6 +462,60 @@ def add_fullscreen():
         return redirect(url_for('dashboard'))
     
     return render_template('add_fullscreen.html')
+
+@app.route('/edit-banner/<banner_id>', methods=['GET', 'POST'])
+def edit_banner(banner_id):
+    banner = ads_model.get_banner(banner_id)
+    
+    if not banner:
+        return render_template('error.html', message="Banner não encontrado")
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        image_url = request.form.get('imageUrl')
+        target_url = request.form.get('targetUrl')
+        
+        if not title or not image_url or not target_url:
+            return render_template('error.html', message="Todos os campos são obrigatórios")
+        
+        ads_model.update_banner(banner_id, title, image_url, target_url)
+        return redirect(url_for('dashboard'))
+    
+    return render_template('edit_banner.html', banner=banner)
+
+@app.route('/edit-fullscreen/<ad_id>', methods=['GET', 'POST'])
+def edit_fullscreen(ad_id):
+    ad = ads_model.get_fullscreen_ad(ad_id)
+    
+    if not ad:
+        return render_template('error.html', message="Anúncio não encontrado")
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        image_url = request.form.get('imageUrl')
+        target_url = request.form.get('targetUrl')
+        
+        if not title or not image_url or not target_url:
+            return render_template('error.html', message="Todos os campos são obrigatórios")
+        
+        ads_model.update_fullscreen_ad(ad_id, title, image_url, target_url)
+        return redirect(url_for('dashboard'))
+    
+    return render_template('edit_fullscreen.html', ad=ad)
+
+@app.route('/delete-banner/<banner_id>', methods=['POST'])
+def delete_banner(banner_id):
+    if not ads_model.delete_banner(banner_id):
+        return render_template('error.html', message="Erro ao excluir banner")
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete-fullscreen/<ad_id>', methods=['POST'])
+def delete_fullscreen(ad_id):
+    if not ads_model.delete_fullscreen_ad(ad_id):
+        return render_template('error.html', message="Erro ao excluir anúncio")
+    
+    return redirect(url_for('dashboard'))
 
 # Rota para diagnóstico
 @app.route('/debug')
