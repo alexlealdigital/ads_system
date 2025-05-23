@@ -49,17 +49,17 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard_home') }}">Dashboard de Anúncios</a>
+            <a class="navbar-brand" href="/">Dashboard de Anúncios</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('add_banner') }}">Adicionar Banner</a>
+                        <a class="nav-link" href="/add-banner">Adicionar Banner</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('add_fullscreen') }}">Adicionar Anúncio Tela Cheia</a>
+                        <a class="nav-link" href="/add-fullscreen">Adicionar Anúncio Tela Cheia</a>
                     </li>
                 </ul>
             </div>
@@ -83,15 +83,15 @@
                         </h5>
                         <div class="row mt-4">
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.ads_count | default(0) }}</h3>
+                                <h3>{{ metrics.banner.ads_count }}</h3>
                                 <p class="text-muted">Total de Anúncios</p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.total_impressions | default(0) }}</h3>
+                                <h3>{{ metrics.banner.total_impressions }}</h3>
                                 <p class="text-muted">Impressões</p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.ctr | default(0) }}%</h3>
+                                <h3>{{ metrics.banner.ctr }}%</h3>
                                 <p class="text-muted">Taxa de Cliques</p>
                             </div>
                         </div>
@@ -107,15 +107,15 @@
                         </h5>
                         <div class="row mt-4">
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.ads_count | default(0) }}</h3>
+                                <h3>{{ metrics.fullscreen.ads_count }}</h3>
                                 <p class="text-muted">Total de Anúncios</p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.total_impressions | default(0) }}</h3>
+                                <h3>{{ metrics.fullscreen.total_impressions }}</h3>
                                 <p class="text-muted">Impressões</p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.ctr | default(0) }}%</h3>
+                                <h3>{{ metrics.fullscreen.ctr }}%</h3>
                                 <p class="text-muted">Taxa de Cliques</p>
                             </div>
                         </div>
@@ -156,7 +156,7 @@
                             <h5 class="card-title">
                                 <span class="header-icon">🖼️</span>Detalhes dos Banners
                             </h5>
-                            <a href="{{ url_for('add_banner') }}" class="btn btn-primary btn-sm">
+                            <a href="/add-banner" class="btn btn-primary btn-sm">
                                 <i class="bi bi-plus-circle"></i> Adicionar Banner
                             </a>
                         </div>
@@ -174,7 +174,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for ad in banner_ads %} {# << Mudança aqui para usar banner_ads #}
+                                    {% for ad in metrics.banner.ads %}
                                     <tr>
                                         <td>
                                             <img src="{{ ad.imageUrl }}" alt="Banner" class="img-thumbnail">
@@ -184,10 +184,10 @@
                                                 {{ ad.linkUrl }}
                                             </a>
                                         </td>
-                                        <td>{{ ad.impressions | default(0) }}</td>
-                                        <td>{{ ad.clicks | default(0) }}</td>
+                                        <td>{{ ad.impressions }}</td>
+                                        <td>{{ ad.clicks }}</td>
                                         <td>
-                                            {% if ad.impressions and ad.impressions > 0 %}
+                                            {% if ad.impressions > 0 %}
                                                 {{ (ad.clicks / ad.impressions * 100) | round(2) }}%
                                             {% else %}
                                                 0%
@@ -195,26 +195,21 @@
                                         </td>
                                         <td>
                                             {% if ad.lastShown %}
-                                                {{ ad.lastShown.split('T')[0] }} {# Simplifica a data #}
+                                                {{ ad.lastShown.split('T')[0] }}
                                             {% else %}
                                                 Nunca exibido
                                             {% endif %}
                                         </td>
                                         <td class="action-buttons">
-                                            {# << Certifique-se que 'ad.id' existe e é o ID correto #}
-                                            <a href="{{ url_for('edit_banner', ad_id=ad.id) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                            <a href="/edit-banner/{{ ad.id }}" class="btn btn-sm btn-outline-primary" title="Editar">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
-                                            <form class="delete-form" action="{{ url_for('delete_banner', ad_id=ad.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este banner?');">
+                                            <form class="delete-form" action="/delete-banner/{{ ad.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este banner?');">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
                                         </td>
-                                    </tr>
-                                    {% else %} {# << Adicionado para caso não haja anúncios #}
-                                    <tr>
-                                        <td colspan="7" class="text-center">Nenhum anúncio de banner encontrado.</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -231,7 +226,7 @@
                             <h5 class="card-title">
                                 <span class="header-icon">📱</span>Detalhes dos Anúncios Tela Cheia
                             </h5>
-                            <a href="{{ url_for('add_fullscreen') }}" class="btn btn-primary btn-sm">
+                            <a href="/add-fullscreen" class="btn btn-primary btn-sm">
                                 <i class="bi bi-plus-circle"></i> Adicionar Anúncio
                             </a>
                         </div>
@@ -249,7 +244,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for ad in fullscreen_ads %} {# << Mudança aqui para usar fullscreen_ads #}
+                                    {% for ad in metrics.fullscreen.ads %}
                                     <tr>
                                         <td>
                                             <img src="{{ ad.imageUrl }}" alt="Anúncio Tela Cheia" class="img-thumbnail">
@@ -259,10 +254,10 @@
                                                 {{ ad.linkUrl }}
                                             </a>
                                         </td>
-                                        <td>{{ ad.impressions | default(0) }}</td>
-                                        <td>{{ ad.clicks | default(0) }}</td>
+                                        <td>{{ ad.impressions }}</td>
+                                        <td>{{ ad.clicks }}</td>
                                         <td>
-                                            {% if ad.impressions and ad.impressions > 0 %}
+                                            {% if ad.impressions > 0 %}
                                                 {{ (ad.clicks / ad.impressions * 100) | round(2) }}%
                                             {% else %}
                                                 0%
@@ -270,26 +265,21 @@
                                         </td>
                                         <td>
                                             {% if ad.lastShown %}
-                                                {{ ad.lastShown.split('T')[0] }} {# Simplifica a data #}
+                                                {{ ad.lastShown.split('T')[0] }}
                                             {% else %}
                                                 Nunca exibido
                                             {% endif %}
                                         </td>
                                         <td class="action-buttons">
-                                            {# << Certifique-se que 'ad.id' existe e é o ID correto #}
-                                            <a href="{{ url_for('edit_fullscreen', ad_id=ad.id) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                            <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-sm btn-outline-primary" title="Editar">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
-                                            <form class="delete-form" action="{{ url_for('delete_fullscreen', ad_id=ad.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este anúncio?');">
+                                            <form class="delete-form" action="/delete-fullscreen/{{ ad.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este anúncio?');">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
                                         </td>
-                                    </tr>
-                                    {% else %} {# << Adicionado para caso não haja anúncios #}
-                                    <tr>
-                                        <td colspan="7" class="text-center">Nenhum anúncio de tela cheia encontrado.</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -304,27 +294,19 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Dados para os gráficos
-        // **IMPORTANTE**: Se você mudou a iteração das tabelas para banner_ads e fullscreen_ads,
-        // os dados para os gráficos também podem precisar usar essas variáveis,
-        // ou você precisa garantir que metrics.banner.ads e metrics.fullscreen.ads
-        // ainda contenham os dados detalhados para os gráficos.
-
-        const bannerAdsForChart = {{ banner_ads | tojson | safe if banner_ads else [] }};
-        const fullscreenAdsForChart = {{ fullscreen_ads | tojson | safe if fullscreen_ads else [] }};
-
         const bannerData = {
-            labels: bannerAdsForChart.map((ad, index) => `Banner ${index + 1}`), // Usar banner_ads
+            labels: [{% for ad in metrics.banner.ads %}'Anúncio {{ loop.index }}',{% endfor %}],
             datasets: [
                 {
                     label: 'Impressões',
-                    data: bannerAdsForChart.map(ad => ad.impressions || 0), // Usar banner_ads
+                    data: [{% for ad in metrics.banner.ads %}{{ ad.impressions }},{% endfor %}],
                     backgroundColor: 'rgba(54, 162, 235, 0.5)',
                     borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Cliques',
-                    data: bannerAdsForChart.map(ad => ad.clicks || 0), // Usar banner_ads
+                    data: [{% for ad in metrics.banner.ads %}{{ ad.clicks }},{% endfor %}],
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                     borderColor: 'rgba(255, 99, 132, 1)',
                     borderWidth: 1
@@ -333,20 +315,20 @@
         };
 
         const fullscreenData = {
-            labels: fullscreenAdsForChart.map((ad, index) => `Tela Cheia ${index + 1}`), // Usar fullscreen_ads
+            labels: [{% for ad in metrics.fullscreen.ads %}'Anúncio {{ loop.index }}',{% endfor %}],
             datasets: [
                 {
                     label: 'Impressões',
-                    data: fullscreenAdsForChart.map(ad => ad.impressions || 0), // Usar fullscreen_ads
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)', // Cor diferente para fullscreen
-                    borderColor: 'rgba(75, 192, 192, 1)',
+                    data: [{% for ad in metrics.fullscreen.ads %}{{ ad.impressions }},{% endfor %}],
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Cliques',
-                    data: fullscreenAdsForChart.map(ad => ad.clicks || 0), // Usar fullscreen_ads
-                    backgroundColor: 'rgba(255, 159, 64, 0.5)', // Cor diferente
-                    borderColor: 'rgba(255, 159, 64, 1)',
+                    data: [{% for ad in metrics.fullscreen.ads %}{{ ad.clicks }},{% endfor %}],
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
                     borderWidth: 1
                 }
             ]
@@ -360,10 +342,7 @@
                 maintainAspectRatio: false,
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        ticks: {
-                           stepSize: 1 // Para evitar decimais se os números forem pequenos
-                        }
+                        beginAtZero: true
                     }
                 }
             }
@@ -371,21 +350,18 @@
 
         // Inicializar gráficos
         window.addEventListener('load', function() {
-            if (document.getElementById('bannerChart') && bannerAdsForChart.length > 0) {
-                const bannerCtx = document.getElementById('bannerChart').getContext('2d');
-                new Chart(bannerCtx, {
-                    ...chartConfig,
-                    data: bannerData
-                });
-            }
+            const bannerCtx = document.getElementById('bannerChart').getContext('2d');
+            const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
             
-            if (document.getElementById('fullscreenChart') && fullscreenAdsForChart.length > 0) {
-                const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
-                new Chart(fullscreenCtx, {
-                    ...chartConfig,
-                    data: fullscreenData
-                });
-            }
+            new Chart(bannerCtx, {
+                ...chartConfig,
+                data: bannerData
+            });
+            
+            new Chart(fullscreenCtx, {
+                ...chartConfig,
+                data: fullscreenData
+            });
         });
     </script>
 </body>
