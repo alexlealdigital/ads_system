@@ -1,6 +1,6 @@
 /**
  * Sistema de Anúncios para jogos Unity WebGL
- * Versão: 2.0.0
+ * Versão: 2.1.0
  * Autor: Manus AI
  * 
  * Este script gerencia a exibição de banners e anúncios de tela cheia
@@ -491,7 +491,7 @@ class AdSystem {
   }
   
   /**
-   * Reposiciona o banner para ficar dentro do canvas do Unity
+   * Reposiciona o banner para ficar centralizado no canvas do Unity
    */
   repositionBanner() {
     if (!this.bannerContainer) {
@@ -501,21 +501,55 @@ class AdSystem {
     // Encontrar o canvas do Unity
     const unityCanvas = document.getElementById('unity-canvas');
     if (!unityCanvas) {
-      this.log('Canvas do Unity não encontrado, usando posicionamento padrão');
+      // Tentar encontrar o canvas por seletor mais genérico
+      const canvases = document.getElementsByTagName('canvas');
+      if (canvases.length > 0) {
+        const canvas = canvases[0];
+        this.centerBannerOnElement(canvas);
+        return;
+      }
+      
+      // Se não encontrar nenhum canvas, usar posicionamento centralizado na janela
+      this.centerBannerInWindow();
       return;
     }
     
-    // Obter dimensões e posição do canvas
-    const canvasRect = unityCanvas.getBoundingClientRect();
+    // Centralizar no canvas do Unity
+    this.centerBannerOnElement(unityCanvas);
+  }
+  
+  /**
+   * Centraliza o banner em um elemento específico
+   * @param {HTMLElement} element - Elemento para centralizar o banner
+   */
+  centerBannerOnElement(element) {
+    const rect = element.getBoundingClientRect();
     
-    // Posicionar o banner no topo do canvas
-    this.bannerContainer.style.position = 'absolute';
-    this.bannerContainer.style.top = `${canvasRect.top}px`;
-    this.bannerContainer.style.left = `${canvasRect.left + (canvasRect.width - ADS_CONFIG.BANNER_WIDTH) / 2}px`;
-    this.bannerContainer.style.width = `${ADS_CONFIG.BANNER_WIDTH}px`;
-    this.bannerContainer.style.height = `${ADS_CONFIG.BANNER_HEIGHT}px`;
+    // Calcular posição centralizada
+    const left = rect.left + (rect.width - ADS_CONFIG.BANNER_WIDTH) / 2;
     
-    this.log(`Banner reposicionado: top=${this.bannerContainer.style.top}, left=${this.bannerContainer.style.left}`);
+    // Aplicar posicionamento
+    this.bannerContainer.style.position = 'fixed'; // Usar fixed para evitar problemas de scroll
+    this.bannerContainer.style.top = `${rect.top}px`;
+    this.bannerContainer.style.left = `${left}px`;
+    this.bannerContainer.style.transform = 'none'; // Remover transform para posicionamento preciso
+    
+    this.log(`Banner centralizado no elemento: top=${rect.top}px, left=${left}px`);
+  }
+  
+  /**
+   * Centraliza o banner na janela
+   */
+  centerBannerInWindow() {
+    const windowWidth = window.innerWidth;
+    const left = (windowWidth - ADS_CONFIG.BANNER_WIDTH) / 2;
+    
+    this.bannerContainer.style.position = 'fixed';
+    this.bannerContainer.style.top = '0';
+    this.bannerContainer.style.left = `${left}px`;
+    this.bannerContainer.style.transform = 'none';
+    
+    this.log(`Banner centralizado na janela: left=${left}px`);
   }
   
   /**
