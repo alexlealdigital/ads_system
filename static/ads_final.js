@@ -1,10 +1,10 @@
 /**
  * Sistema de Anúncios para Jogos Unity WebGL
- * Versão: 1.1.0
+ * Versão: 1.3.0
  * 
  * Este script gerencia a exibição de anúncios em jogos Unity WebGL:
- * - Banners rotativos no topo da página (1080px × 140px)
- * - Anúncios de tela cheia após game overs (1080px × 1920px)
+ * - Banners rotativos no topo da área do jogo (360px × 47px)
+ * - Anúncios de tela cheia após game overs (360px × 640px)
  * - Rastreamento de impressões e cliques
  * 
  * Otimizado para máxima robustez e compatibilidade
@@ -24,8 +24,16 @@ const adSystem = (function() {
     fallbackImageUrl: '',         // URL de imagem de fallback (opcional)
     fallbackTargetUrl: 'https://alexlealdigital.github.io', // URL de destino de fallback
     containerZIndex: {
-      banner: 1000,
-      fullscreen: 2000
+      banner: 9999,               // Z-index muito alto para garantir que fique acima do canvas
+      fullscreen: 10000           // Z-index ainda mais alto para tela cheia
+    },
+    bannerSize: {
+      width: 360,                 // Largura do banner em pixels (ajustada para o jogo)
+      height: 47                  // Altura do banner em pixels (ajustada para o jogo)
+    },
+    fullscreenSize: {
+      width: 360,                 // Largura do anúncio de tela cheia (ajustada para o jogo)
+      height: 640                 // Altura do anúncio de tela cheia (ajustada para o jogo)
     }
   };
   
@@ -44,7 +52,9 @@ const adSystem = (function() {
       fullscreen: 0
     },
     pendingTimers: [],
-    observer: null
+    observer: null,
+    unityContainer: null,
+    unityCanvas: null
   };
   
   // Cache de elementos DOM
@@ -150,6 +160,108 @@ const adSystem = (function() {
       }, delay);
       
       utils.addTimer(timer);
+    },
+    
+    // Função para encontrar o container do Unity
+    findUnityContainer: function() {
+      // Procurar pelo container do Unity
+      const unityContainer = document.getElementById('unity-container');
+      if (unityContainer) {
+        state.unityContainer = unityContainer;
+        publicAPI.log('Container do Unity encontrado');
+        
+        // Procurar pelo canvas do Unity
+        const unityCanvas = document.getElementById('unity-canvas');
+        if (unityCanvas) {
+          state.unityCanvas = unityCanvas;
+          publicAPI.log('Canvas do Unity encontrado');
+        }
+        
+        return unityContainer;
+      }
+      
+      // Se não encontrar pelo ID, tentar encontrar pelo canvas
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        state.unityCanvas = canvas;
+        state.unityContainer = canvas.parentElement;
+        publicAPI.log('Container do Unity encontrado via canvas');
+        return canvas.parentElement;
+      }
+      
+      publicAPI.log('Container do Unity não encontrado', 'warn');
+      return null;
+    },
+    
+    // Função para posicionar o banner dentro do container do Unity
+    positionBannerInUnityContainer: function() {
+      if (!domElements.bannerContainer) return;
+      
+      // Encontrar o container do Unity se ainda não foi encontrado
+      if (!state.unityContainer) {
+        utils.findUnityContainer();
+      }
+      
+      if (state.unityContainer) {
+        // Obter as dimensões e posição do container do Unity
+        const unityRect = state.unityContainer.getBoundingClientRect();
+        
+        // Posicionar o banner no topo do container do Unity
+        domElements.bannerContainer.style.position = 'absolute';
+        domElements.bannerContainer.style.top = unityRect.top + 'px';
+        domElements.bannerContainer.style.left = unityRect.left + 'px';
+        domElements.bannerContainer.style.width = publicAPI.config.bannerSize.width + 'px';
+        domElements.bannerContainer.style.height = publicAPI.config.bannerSize.height + 'px';
+        
+        publicAPI.log(`Banner posicionado dentro do container do Unity: top=${unityRect.top}, left=${unityRect.left}, width=${publicAPI.config.bannerSize.width}, height=${publicAPI.config.bannerSize.height}`);
+      } else {
+        // Fallback: posicionar no centro superior da tela
+        domElements.bannerContainer.style.position = 'fixed';
+        domElements.bannerContainer.style.top = '0';
+        domElements.bannerContainer.style.left = '50%';
+        domElements.bannerContainer.style.transform = 'translateX(-50%)';
+        domElements.bannerContainer.style.width = publicAPI.config.bannerSize.width + 'px';
+        domElements.bannerContainer.style.height = publicAPI.config.bannerSize.height + 'px';
+        
+        publicAPI.log('Banner posicionado no centro superior da tela (fallback)');
+      }
+    },
+    
+    // Função para garantir que um elemento esteja visível
+    ensureElementVisibility: function(element) {
+      if (!element) return;
+      
+      // Forçar visibilidade
+      element.style.display = 'block';
+      element.style.visibility = 'visible';
+      element.style.opacity = '1';
+      
+      // Garantir que esteja acima de outros elementos
+      const computedZIndex = parseInt(window.getComputedStyle(element).zIndex, 10);
+      if (isNaN(computedZIndex) || computedZIndex < 9000) {
+        element.style.zIndex = '9999';
+      }
+      
+      // Verificar se o elemento está realmente visível
+      const rect = element.getBoundingClientRect();
+      const isVisible = rect.width > 0 && rect.height > 0;
+      
+      if (!isVisible) {
+        publicAPI.log(`Elemento ${element.id} tem dimensões zero, ajustando...`, 'warn');
+        element.style.width = publicAPI.config.bannerSize.width + 'px';
+        element.style.height = publicAPI.config.bannerSize.height + 'px';
+      }
+      
+      // Verificar se o elemento está anexado ao DOM
+      if (!document.body.contains(element)) {
+        publicAPI.log(`Elemento ${element.id} não está no DOM, reapendendo...`, 'warn');
+        document.body.appendChild(element);
+      }
+      
+      // Reposicionar o banner dentro do container do Unity
+      if (element.id === 'ad-banner-container') {
+        utils.positionBannerInUnityContainer();
+      }
     }
   };
   
@@ -182,6 +294,9 @@ const adSystem = (function() {
           });
         }
         
+        // Encontrar o container do Unity
+        utils.findUnityContainer();
+        
         // Criar elementos de UI
         this.createBannerContainer();
         this.createFullscreenContainer();
@@ -196,12 +311,27 @@ const adSystem = (function() {
         // Iniciar rotação de banners
         this.startBannerRotation();
         
+        // Verificar visibilidade periodicamente
+        this.startVisibilityCheck();
+        
         state.initialized = true;
         this.log('Sistema de anúncios inicializado com sucesso');
       } catch (error) {
         this.log(`Erro durante inicialização: ${error.message}`, 'error');
         console.error(error);
       }
+    },
+    
+    // Iniciar verificação periódica de visibilidade
+    startVisibilityCheck: function() {
+      const checkInterval = setInterval(() => {
+        if (state.isGameScreen && domElements.bannerContainer) {
+          utils.ensureElementVisibility(domElements.bannerContainer);
+          this.log('Verificação de visibilidade do banner executada');
+        }
+      }, 5000); // Verificar a cada 5 segundos
+      
+      utils.addTimer(checkInterval);
     },
     
     // Reinicializar o sistema (útil após mudanças de configuração)
@@ -241,7 +371,9 @@ const adSystem = (function() {
           fullscreen: 0
         },
         pendingTimers: [],
-        observer: null
+        observer: null,
+        unityContainer: null,
+        unityCanvas: null
       };
       
       // Resetar cache de elementos DOM
@@ -263,23 +395,82 @@ const adSystem = (function() {
         if (existingContainer) {
           domElements.bannerContainer = existingContainer;
           this.log('Container de banner já existe, reutilizando');
+          
+          // Garantir que o container tenha os estilos corretos
+          Object.assign(existingContainer.style, {
+            position: 'absolute', // Posicionamento absoluto para alinhar com o container do Unity
+            width: this.config.bannerSize.width + 'px',
+            height: this.config.bannerSize.height + 'px',
+            zIndex: this.config.containerZIndex.banner.toString(),
+            display: 'none',
+            overflow: 'hidden',
+            pointerEvents: 'auto',
+            backgroundColor: 'transparent', // Fundo transparente
+            textAlign: 'center', // Centralizar o conteúdo
+            boxSizing: 'border-box', // Garantir que padding não afete dimensões
+            margin: '0', // Remover margens
+            padding: '0', // Remover padding
+            border: 'none', // Remover bordas
+            visibility: 'visible', // Garantir visibilidade
+            opacity: '1' // Garantir opacidade total
+          });
+          
+          // Posicionar o container dentro do Unity
+          utils.positionBannerInUnityContainer();
+          
           return;
         }
         
+        // Criar novo container
         const container = utils.createElement('div', 'ad-banner-container', {
+          position: 'absolute', // Posicionamento absoluto para alinhar com o container do Unity
+          width: this.config.bannerSize.width + 'px',
+          height: this.config.bannerSize.height + 'px',
+          zIndex: this.config.containerZIndex.banner.toString(),
+          display: 'none',
+          overflow: 'hidden',
+          pointerEvents: 'auto',
+          backgroundColor: 'transparent', // Fundo transparente
+          textAlign: 'center', // Centralizar o conteúdo
+          boxSizing: 'border-box', // Garantir que padding não afete dimensões
+          margin: '0', // Remover margens
+          padding: '0', // Remover padding
+          border: 'none', // Remover bordas
+          visibility: 'visible', // Garantir visibilidade
+          opacity: '1' // Garantir opacidade total
+        }, document.body);
+        
+        // Adicionar um elemento de debug para visualização
+        const debugElement = utils.createElement('div', 'ad-banner-debug', {
           position: 'absolute',
           top: '0',
           left: '0',
           width: '100%',
-          height: '140px',
-          zIndex: this.config.containerZIndex.banner.toString(),
-          display: 'none',
-          overflow: 'hidden',
-          pointerEvents: 'auto'
-        }, document.body);
+          height: '100%',
+          backgroundColor: 'rgba(255, 0, 0, 0.1)', // Vermelho transparente para debug
+          color: 'white',
+          fontSize: '10px',
+          textAlign: 'center',
+          lineHeight: this.config.bannerSize.height + 'px',
+          pointerEvents: 'none',
+          display: 'none' // Inicialmente oculto
+        }, container);
+        
+        debugElement.textContent = `Área de Banner (${this.config.bannerSize.width}×${this.config.bannerSize.height}px)`;
+        
+        // Mostrar elemento de debug se em modo de depuração
+        if (this.config.debug) {
+          debugElement.style.display = 'block';
+        }
         
         domElements.bannerContainer = container;
         this.log('Container de banner criado com sucesso');
+        
+        // Posicionar o container dentro do Unity
+        utils.positionBannerInUnityContainer();
+        
+        // Garantir que o container esteja no topo do DOM para máxima visibilidade
+        document.body.appendChild(container);
       } catch (error) {
         this.log(`Erro ao criar container de banner: ${error.message}`, 'error');
       }
@@ -294,6 +485,24 @@ const adSystem = (function() {
           domElements.fullscreenContainer = existingContainer;
           domElements.fullscreenContent = document.getElementById('ad-fullscreen-content');
           this.log('Container de anúncio de tela cheia já existe, reutilizando');
+          
+          // Garantir que o container tenha os estilos corretos
+          Object.assign(existingContainer.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100%',
+            height: '100%',
+            zIndex: this.config.containerZIndex.fullscreen.toString(),
+            display: 'none',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            pointerEvents: 'auto',
+            visibility: 'visible', // Garantir visibilidade
+            opacity: '1' // Garantir opacidade total
+          });
+          
           return;
         }
         
@@ -308,13 +517,15 @@ const adSystem = (function() {
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           justifyContent: 'center',
           alignItems: 'center',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          visibility: 'visible', // Garantir visibilidade
+          opacity: '1' // Garantir opacidade total
         }, document.body);
         
         const adContent = utils.createElement('div', 'ad-fullscreen-content', {
           position: 'relative',
-          width: '1080px',
-          height: '1920px',
+          width: this.config.fullscreenSize.width + 'px',
+          height: this.config.fullscreenSize.height + 'px',
           maxWidth: '90%',
           maxHeight: '90%',
           backgroundSize: 'contain',
@@ -349,6 +560,9 @@ const adSystem = (function() {
         domElements.fullscreenContent = adContent;
         
         this.log('Container de anúncio de tela cheia criado com sucesso');
+        
+        // Garantir que o container esteja no topo do DOM para máxima visibilidade
+        document.body.appendChild(container);
       } catch (error) {
         this.log(`Erro ao criar container de anúncio de tela cheia: ${error.message}`, 'error');
       }
@@ -408,6 +622,17 @@ const adSystem = (function() {
         if (state.isGameScreen) {
           this.showBanner();
         }
+        
+        // Adicionar listener para redimensionamento da janela
+        window.addEventListener('resize', () => {
+          if (state.isGameScreen && domElements.bannerContainer) {
+            // Reposicionar banner após redimensionamento
+            setTimeout(() => {
+              utils.positionBannerInUnityContainer();
+              utils.ensureElementVisibility(domElements.bannerContainer);
+            }, 100);
+          }
+        });
         
         this.log('Event listeners configurados com sucesso');
       } catch (error) {
@@ -595,7 +820,14 @@ const adSystem = (function() {
         domElements.bannerContainer.style.backgroundSize = 'contain';
         domElements.bannerContainer.style.backgroundPosition = 'center';
         domElements.bannerContainer.style.backgroundRepeat = 'no-repeat';
+        
+        // Garantir que o container esteja visível
         domElements.bannerContainer.style.display = 'block';
+        domElements.bannerContainer.style.visibility = 'visible';
+        domElements.bannerContainer.style.opacity = '1';
+        
+        // Garantir que o z-index seja alto o suficiente
+        domElements.bannerContainer.style.zIndex = this.config.containerZIndex.banner.toString();
         
         // Limpar event listeners existentes
         const newContainer = domElements.bannerContainer.cloneNode(true);
@@ -606,6 +838,14 @@ const adSystem = (function() {
         domElements.bannerContainer.addEventListener('click', () => {
           this.handleBannerClick(currentBanner);
         });
+        
+        // Reposicionar o banner dentro do container do Unity
+        utils.positionBannerInUnityContainer();
+        
+        // Verificar visibilidade após um curto atraso
+        setTimeout(() => {
+          utils.ensureElementVisibility(domElements.bannerContainer);
+        }, 100);
         
         this.log(`Banner exibido: ${currentBanner.id}`);
         
@@ -657,7 +897,14 @@ const adSystem = (function() {
         
         // Configurar o container
         domElements.fullscreenContent.style.backgroundImage = `url('${ad.imageUrl}')`;
+        
+        // Garantir que o container esteja visível
         domElements.fullscreenContainer.style.display = 'flex';
+        domElements.fullscreenContainer.style.visibility = 'visible';
+        domElements.fullscreenContainer.style.opacity = '1';
+        
+        // Garantir que o z-index seja alto o suficiente
+        domElements.fullscreenContainer.style.zIndex = this.config.containerZIndex.fullscreen.toString();
         
         // Limpar event listeners existentes
         const newContent = domElements.fullscreenContent.cloneNode(true);
@@ -668,6 +915,9 @@ const adSystem = (function() {
         domElements.fullscreenContent.addEventListener('click', () => {
           this.handleFullscreenAdClick(ad);
         });
+        
+        // Garantir que o container esteja no topo do DOM
+        document.body.appendChild(domElements.fullscreenContainer);
         
         // Configurar fechamento automático
         const timer = setTimeout(() => {
@@ -913,6 +1163,10 @@ const adSystem = (function() {
           gameOverCount: state.gameOverCount,
           unityInstanceDetected: !!state.unityInstance
         },
+        unityElements: {
+          containerFound: !!state.unityContainer,
+          canvasFound: !!state.unityCanvas
+        },
         domElements: {
           bannerContainer: !!domElements.bannerContainer,
           fullscreenContainer: !!domElements.fullscreenContainer,
@@ -920,6 +1174,23 @@ const adSystem = (function() {
         },
         config: { ...this.config }
       };
+      
+      // Verificar visibilidade do banner
+      if (domElements.bannerContainer) {
+        const bannerStyle = window.getComputedStyle(domElements.bannerContainer);
+        report.bannerVisibility = {
+          display: bannerStyle.display,
+          visibility: bannerStyle.visibility,
+          opacity: bannerStyle.opacity,
+          zIndex: bannerStyle.zIndex,
+          position: bannerStyle.position,
+          width: bannerStyle.width,
+          height: bannerStyle.height,
+          top: bannerStyle.top,
+          left: bannerStyle.left,
+          inDOM: document.body.contains(domElements.bannerContainer)
+        };
+      }
       
       console.log('Diagnóstico do sistema de anúncios:', report);
       return report;
