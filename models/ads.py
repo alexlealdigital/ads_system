@@ -13,12 +13,13 @@ class AdModel:
     Suporta banners (360x47px) e anúncios de tela cheia (360x640px).
     """
     
-    def __init__(self, data_dir='data'):
+    def __init__(self, data_dir='data', data_file=None):
         """
         Inicializa o modelo com o diretório de dados especificado.
         
         Args:
             data_dir (str): Diretório onde os dados serão armazenados
+            data_file (str): Arquivo de dados opcional (para compatibilidade)
         """
         self.data_dir = data_dir
         self.banners_file = os.path.join(data_dir, 'banners.json')
@@ -284,3 +285,84 @@ class AdModel:
                 ad['ctr'] = 0
         
         return ads
+    
+    def get_metrics(self):
+        """
+        Obtém métricas completas para o dashboard.
+        
+        Returns:
+            dict: Métricas formatadas para o dashboard
+        """
+        # Preparar métricas para banners
+        banner_ads = []
+        total_banner_impressions = 0
+        total_banner_clicks = 0
+        
+        for banner in self.get_banners():
+            banner_id = banner['id']
+            key = f"banner_{banner_id}"
+            stats = self.get_stats()
+            impressions = stats.get('impressions', {}).get(key, 0)
+            clicks = stats.get('clicks', {}).get(key, 0)
+            
+            total_banner_impressions += impressions
+            total_banner_clicks += clicks
+            
+            banner_with_metrics = banner.copy()
+            banner_with_metrics['impressions'] = impressions
+            banner_with_metrics['clicks'] = clicks
+            banner_with_metrics['linkUrl'] = banner['targetUrl']  # Compatibilidade com o template
+            banner_with_metrics['lastShown'] = banner.get('createdAt', '')
+            
+            banner_ads.append(banner_with_metrics)
+        
+        # Calcular CTR para banners
+        banner_ctr = 0
+        if total_banner_impressions > 0:
+            banner_ctr = round((total_banner_clicks / total_banner_impressions) * 100, 2)
+        
+        # Preparar métricas para anúncios de tela cheia
+        fullscreen_ads = []
+        total_fullscreen_impressions = 0
+        total_fullscreen_clicks = 0
+        
+        for ad in self.get_fullscreen_ads():
+            ad_id = ad['id']
+            key = f"fullscreen_{ad_id}"
+            stats = self.get_stats()
+            impressions = stats.get('impressions', {}).get(key, 0)
+            clicks = stats.get('clicks', {}).get(key, 0)
+            
+            total_fullscreen_impressions += impressions
+            total_fullscreen_clicks += clicks
+            
+            ad_with_metrics = ad.copy()
+            ad_with_metrics['impressions'] = impressions
+            ad_with_metrics['clicks'] = clicks
+            ad_with_metrics['linkUrl'] = ad['targetUrl']  # Compatibilidade com o template
+            ad_with_metrics['lastShown'] = ad.get('createdAt', '')
+            
+            fullscreen_ads.append(ad_with_metrics)
+        
+        # Calcular CTR para anúncios de tela cheia
+        fullscreen_ctr = 0
+        if total_fullscreen_impressions > 0:
+            fullscreen_ctr = round((total_fullscreen_clicks / total_fullscreen_impressions) * 100, 2)
+        
+        # Estrutura final de métricas
+        return {
+            'banner': {
+                'ads': banner_ads,
+                'ads_count': len(self.get_banners()),
+                'total_impressions': total_banner_impressions,
+                'total_clicks': total_banner_clicks,
+                'ctr': banner_ctr
+            },
+            'fullscreen': {
+                'ads': fullscreen_ads,
+                'ads_count': len(self.get_fullscreen_ads()),
+                'total_impressions': total_fullscreen_impressions,
+                'total_clicks': total_fullscreen_clicks,
+                'ctr': fullscreen_ctr
+            }
+        }
