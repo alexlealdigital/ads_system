@@ -1,6 +1,6 @@
 """
 Aplicação principal para o sistema de anúncios.
-Gerencia banners e anúncios de tela cheia.
+Gerencia banners e anúncios de tela cheia com suporte completo a edição e exclusão.
 """
 import os
 import sys
@@ -444,8 +444,15 @@ def add_banner():
         if not title or not image_url or not target_url:
             return render_template('error.html', message="Todos os campos são obrigatórios")
         
-        ads_model.add_banner(title, image_url, target_url)
-        return redirect(url_for('dashboard'))
+        if not ads_model:
+            return render_template('error.html', message="Modelo de anúncios não inicializado")
+        
+        banner = ads_model.add_banner(title, image_url, target_url)
+        
+        if banner:
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('error.html', message="Erro ao adicionar banner")
     
     return render_template('add_banner.html')
 
@@ -459,13 +466,23 @@ def add_fullscreen():
         if not title or not image_url or not target_url:
             return render_template('error.html', message="Todos os campos são obrigatórios")
         
-        ads_model.add_fullscreen_ad(title, image_url, target_url)
-        return redirect(url_for('dashboard'))
+        if not ads_model:
+            return render_template('error.html', message="Modelo de anúncios não inicializado")
+        
+        ad = ads_model.add_fullscreen_ad(title, image_url, target_url)
+        
+        if ad:
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('error.html', message="Erro ao adicionar anúncio de tela cheia")
     
     return render_template('add_fullscreen.html')
 
 @app.route('/edit-banner/<banner_id>', methods=['GET', 'POST'])
 def edit_banner(banner_id):
+    if not ads_model:
+        return render_template('error.html', message="Modelo de anúncios não inicializado")
+    
     banner = ads_model.get_banner(banner_id)
     
     if not banner:
@@ -479,17 +496,24 @@ def edit_banner(banner_id):
         if not title or not image_url or not target_url:
             return render_template('error.html', message="Todos os campos são obrigatórios")
         
-        ads_model.update_banner(banner_id, title, image_url, target_url)
-        return redirect(url_for('dashboard'))
+        updated_banner = ads_model.update_banner(banner_id, title, image_url, target_url)
+        
+        if updated_banner:
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('error.html', message="Erro ao atualizar banner")
     
     return render_template('edit_banner.html', banner=banner)
 
 @app.route('/edit-fullscreen/<ad_id>', methods=['GET', 'POST'])
 def edit_fullscreen(ad_id):
+    if not ads_model:
+        return render_template('error.html', message="Modelo de anúncios não inicializado")
+    
     ad = ads_model.get_fullscreen_ad(ad_id)
     
     if not ad:
-        return render_template('error.html', message="Anúncio não encontrado")
+        return render_template('error.html', message="Anúncio de tela cheia não encontrado")
     
     if request.method == 'POST':
         title = request.form.get('title')
@@ -499,38 +523,45 @@ def edit_fullscreen(ad_id):
         if not title or not image_url or not target_url:
             return render_template('error.html', message="Todos os campos são obrigatórios")
         
-        ads_model.update_fullscreen_ad(ad_id, title, image_url, target_url)
-        return redirect(url_for('dashboard'))
+        updated_ad = ads_model.update_fullscreen_ad(ad_id, title, image_url, target_url)
+        
+        if updated_ad:
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('error.html', message="Erro ao atualizar anúncio de tela cheia")
     
     return render_template('edit_fullscreen.html', ad=ad)
 
 @app.route('/delete-banner/<banner_id>', methods=['POST'])
 def delete_banner(banner_id):
-    if not ads_model.delete_banner(banner_id):
-        return render_template('error.html', message="Erro ao excluir banner")
+    if not ads_model:
+        return render_template('error.html', message="Modelo de anúncios não inicializado")
     
-    return redirect(url_for('dashboard'))
+    success = ads_model.delete_banner(banner_id)
+    
+    if success:
+        return redirect(url_for('dashboard'))
+    else:
+        return render_template('error.html', message="Erro ao excluir banner")
 
 @app.route('/delete-fullscreen/<ad_id>', methods=['POST'])
 def delete_fullscreen(ad_id):
-    if not ads_model.delete_fullscreen_ad(ad_id):
-        return render_template('error.html', message="Erro ao excluir anúncio")
+    if not ads_model:
+        return render_template('error.html', message="Modelo de anúncios não inicializado")
     
-    return redirect(url_for('dashboard'))
+    success = ads_model.delete_fullscreen_ad(ad_id)
+    
+    if success:
+        return redirect(url_for('dashboard'))
+    else:
+        return render_template('error.html', message="Erro ao excluir anúncio de tela cheia")
 
-# Rota para diagnóstico
-@app.route('/debug')
-def debug():
-    info = {
-        "app_dir": os.path.dirname(os.path.abspath(__file__)),
-        "current_dir": os.getcwd(),
-        "python_path": sys.path,
-        "ads_model": str(ads_model),
-        "banners": ads_model.get_banners() if ads_model else [],
-        "fullscreen_ads": ads_model.get_fullscreen_ads() if ads_model else [],
-        "metrics": ads_model.get_metrics() if ads_model else {}
-    }
-    return jsonify(info)
+@app.route('/error')
+def error():
+    message = request.args.get('message', 'Erro desconhecido')
+    return render_template('error.html', message=message)
 
+# Iniciar aplicação
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
