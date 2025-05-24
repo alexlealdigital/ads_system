@@ -79,7 +79,7 @@
                 <div class="card metric-card banner-bg h-100">
                     <div class="card-body">
                         <h5 class="card-title">
-                            <span class="header-icon">🖼️</span>Banners (1080×140px)
+                            <span class="header-icon">🖼️</span>Banners (360×47px)
                         </h5>
                         <div class="row mt-4">
                             <div class="col-md-4 text-center">
@@ -103,7 +103,7 @@
                 <div class="card metric-card fullscreen-bg h-100">
                     <div class="card-body">
                         <h5 class="card-title">
-                            <span class="header-icon">📱</span>Tela Cheia (1080×1920px)
+                            <span class="header-icon">📱</span>Tela Cheia (360×640px)
                         </h5>
                         <div class="row mt-4">
                             <div class="col-md-4 text-center">
@@ -165,6 +165,7 @@
                                 <thead>
                                     <tr>
                                         <th>Imagem</th>
+                                        <th>Título</th>
                                         <th>Link</th>
                                         <th>Impressões</th>
                                         <th>Cliques</th>
@@ -179,6 +180,7 @@
                                         <td>
                                             <img src="{{ ad.imageUrl }}" alt="Banner" class="img-thumbnail">
                                         </td>
+                                        <td>{{ ad.title }}</td>
                                         <td>
                                             <a href="{{ ad.linkUrl }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">
                                                 {{ ad.linkUrl }}
@@ -235,6 +237,7 @@
                                 <thead>
                                     <tr>
                                         <th>Imagem</th>
+                                        <th>Título</th>
                                         <th>Link</th>
                                         <th>Impressões</th>
                                         <th>Cliques</th>
@@ -249,6 +252,7 @@
                                         <td>
                                             <img src="{{ ad.imageUrl }}" alt="Anúncio Tela Cheia" class="img-thumbnail">
                                         </td>
+                                        <td>{{ ad.title }}</td>
                                         <td>
                                             <a href="{{ ad.linkUrl }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">
                                                 {{ ad.linkUrl }}
@@ -295,7 +299,7 @@
     <script>
         // Dados para os gráficos
         const bannerData = {
-            labels: [{% for ad in metrics.banner.ads %}'Anúncio {{ loop.index }}',{% endfor %}],
+            labels: [{% for ad in metrics.banner.ads %}'{{ ad.title }}',{% endfor %}],
             datasets: [
                 {
                     label: 'Impressões',
@@ -315,7 +319,7 @@
         };
 
         const fullscreenData = {
-            labels: [{% for ad in metrics.fullscreen.ads %}'Anúncio {{ loop.index }}',{% endfor %}],
+            labels: [{% for ad in metrics.fullscreen.ads %}'{{ ad.title }}',{% endfor %}],
             datasets: [
                 {
                     label: 'Impressões',

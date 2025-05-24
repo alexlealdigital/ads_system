@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adicionar Banner</title>
+    <title>Editar Anúncio de Tela Cheia</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
 </head>
@@ -17,7 +17,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="/add-banner">Adicionar Banner</a>
+                        <a class="nav-link" href="/add-banner">Adicionar Banner</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/add-fullscreen">Adicionar Anúncio Tela Cheia</a>
@@ -30,8 +30,8 @@
     <div class="container py-4">
         <div class="row mb-4">
             <div class="col-12">
-                <h1 class="display-5 mb-4">Adicionar Banner</h1>
-                <p class="lead">Crie um novo banner para exibição no jogo.</p>
+                <h1 class="display-5 mb-4">Editar Anúncio de Tela Cheia</h1>
+                <p class="lead">Atualize as informações do anúncio de tela cheia.</p>
             </div>
         </div>
 
@@ -39,25 +39,25 @@
             <div class="col-md-8 mx-auto">
                 <div class="card">
                     <div class="card-body">
-                        <form action="/add-banner" method="POST">
+                        <form action="/edit-fullscreen/{{ ad.id }}" method="POST">
                             <div class="mb-3">
                                 <label for="title" class="form-label">Título</label>
-                                <input type="text" class="form-control" id="title" name="title" required>
-                                <div class="form-text">Nome descritivo para identificar o banner.</div>
+                                <input type="text" class="form-control" id="title" name="title" value="{{ ad.title }}" required>
+                                <div class="form-text">Nome descritivo para identificar o anúncio.</div>
                             </div>
                             <div class="mb-3">
                                 <label for="imageUrl" class="form-label">URL da Imagem</label>
-                                <input type="url" class="form-control" id="imageUrl" name="imageUrl" required>
-                                <div class="form-text">URL da imagem do banner (tamanho recomendado: 360x47px).</div>
+                                <input type="url" class="form-control" id="imageUrl" name="imageUrl" value="{{ ad.imageUrl }}" required>
+                                <div class="form-text">URL da imagem do anúncio (tamanho recomendado: 360x640px).</div>
                             </div>
                             <div class="mb-3">
                                 <label for="targetUrl" class="form-label">URL de Destino</label>
-                                <input type="url" class="form-control" id="targetUrl" name="targetUrl" required>
-                                <div class="form-text">URL para onde o usuário será direcionado ao clicar no banner.</div>
+                                <input type="url" class="form-control" id="targetUrl" name="targetUrl" value="{{ ad.targetUrl }}" required>
+                                <div class="form-text">URL para onde o usuário será direcionado ao clicar no anúncio.</div>
                             </div>
                             <div class="d-flex justify-content-between">
                                 <a href="/" class="btn btn-outline-secondary">Cancelar</a>
-                                <button type="submit" class="btn btn-primary">Adicionar Banner</button>
+                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
                             </div>
                         </form>
                     </div>
