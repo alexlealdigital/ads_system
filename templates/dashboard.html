@@ -26,30 +26,6 @@
             height: 300px;
             margin-bottom: 20px;
         }
-        .ad-table {
-            font-size: 0.9rem;
-        }
-        .ad-table img {
-            max-width: 100px;
-            max-height: 60px;
-            object-fit: cover;
-        }
-        .header-icon {
-            font-size: 1.5rem;
-            margin-right: 10px;
-        }
-        .action-buttons {
-            white-space: nowrap;
-        }
-        .btn-success, .btn-danger {
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            line-height: 32px;
-            text-align: center;
-            margin-left: 5px;
-        }
         .ad-list-item {
             display: flex;
             justify-content: space-between;
@@ -63,6 +39,30 @@
         .ad-actions {
             display: flex;
             gap: 5px;
+        }
+        /* Estilos específicos para os botões de ação */
+        .btn-edit {
+            background-color: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 5px;
+        }
+        .btn-delete {
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -189,12 +189,12 @@
                                     <strong>{{ loop.index }}.</strong> {{ ad.title }}
                                 </div>
                                 <div class="ad-actions">
-                                    <a href="/edit-banner/{{ ad.id }}" class="btn btn-success" title="Editar">
-                                        <i class="bi bi-pencil"></i>
+                                    <a href="/edit-banner/{{ ad.id }}" class="btn btn-edit">
+                                        <i class="bi bi-pencil-fill"></i>
                                     </a>
-                                    <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este banner?');">
-                                        <button type="submit" class="btn btn-danger" title="Excluir">
-                                            <i class="bi bi-trash"></i>
+                                    <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-delete">
+                                            <i class="bi bi-trash-fill"></i>
                                         </button>
                                     </form>
                                 </div>
@@ -231,12 +231,12 @@
                                     <strong>{{ loop.index }}.</strong> {{ ad.title }}
                                 </div>
                                 <div class="ad-actions">
-                                    <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-success" title="Editar">
-                                        <i class="bi bi-pencil"></i>
+                                    <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-edit">
+                                        <i class="bi bi-pencil-fill"></i>
                                     </a>
-                                    <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este anúncio?');">
-                                        <button type="submit" class="btn btn-danger" title="Excluir">
-                                            <i class="bi bi-trash"></i>
+                                    <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-delete">
+                                            <i class="bi bi-trash-fill"></i>
                                         </button>
                                     </form>
                                 </div>
