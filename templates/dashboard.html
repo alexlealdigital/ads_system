@@ -41,8 +41,28 @@
         .action-buttons {
             white-space: nowrap;
         }
-        .delete-form {
-            display: inline;
+        .btn-success, .btn-danger {
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            line-height: 32px;
+            text-align: center;
+            margin-left: 5px;
+        }
+        .ad-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .ad-list-item:last-child {
+            border-bottom: none;
+        }
+        .ad-actions {
+            display: flex;
+            gap: 5px;
         }
     </style>
 </head>
@@ -160,62 +180,32 @@
                                 <i class="bi bi-plus-circle"></i> Adicionar Banner
                             </a>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-striped ad-table">
-                                <thead>
-                                    <tr>
-                                        <th>Imagem</th>
-                                        <th>Título</th>
-                                        <th>Link</th>
-                                        <th>Impressões</th>
-                                        <th>Cliques</th>
-                                        <th>CTR</th>
-                                        <th>Última Exibição</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ad in metrics.banner.ads %}
-                                    <tr>
-                                        <td>
-                                            <img src="{{ ad.imageUrl }}" alt="Banner" class="img-thumbnail">
-                                        </td>
-                                        <td>{{ ad.title }}</td>
-                                        <td>
-                                            <a href="{{ ad.linkUrl }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">
-                                                {{ ad.linkUrl }}
-                                            </a>
-                                        </td>
-                                        <td>{{ ad.impressions }}</td>
-                                        <td>{{ ad.clicks }}</td>
-                                        <td>
-                                            {% if ad.impressions > 0 %}
-                                                {{ (ad.clicks / ad.impressions * 100) | round(2) }}%
-                                            {% else %}
-                                                0%
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if ad.lastShown %}
-                                                {{ ad.lastShown.split('T')[0] }}
-                                            {% else %}
-                                                Nunca exibido
-                                            {% endif %}
-                                        </td>
-                                        <td class="action-buttons">
-                                            <a href="/edit-banner/{{ ad.id }}" class="btn btn-sm btn-outline-primary" title="Editar">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <form class="delete-form" action="/delete-banner/{{ ad.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este banner?');">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                        
+                        <!-- Lista simplificada de banners com botões de editar e deletar -->
+                        <div class="list-group">
+                            {% for ad in metrics.banner.ads %}
+                            <div class="ad-list-item">
+                                <div>
+                                    <strong>{{ loop.index }}.</strong> {{ ad.title }}
+                                </div>
+                                <div class="ad-actions">
+                                    <a href="/edit-banner/{{ ad.id }}" class="btn btn-success" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este banner?');">
+                                        <button type="submit" class="btn btn-danger" title="Excluir">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            {% if metrics.banner.ads|length == 0 %}
+                            <div class="text-center py-3">
+                                <p class="text-muted">Nenhum banner cadastrado.</p>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -232,62 +222,32 @@
                                 <i class="bi bi-plus-circle"></i> Adicionar Anúncio
                             </a>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-striped ad-table">
-                                <thead>
-                                    <tr>
-                                        <th>Imagem</th>
-                                        <th>Título</th>
-                                        <th>Link</th>
-                                        <th>Impressões</th>
-                                        <th>Cliques</th>
-                                        <th>CTR</th>
-                                        <th>Última Exibição</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ad in metrics.fullscreen.ads %}
-                                    <tr>
-                                        <td>
-                                            <img src="{{ ad.imageUrl }}" alt="Anúncio Tela Cheia" class="img-thumbnail">
-                                        </td>
-                                        <td>{{ ad.title }}</td>
-                                        <td>
-                                            <a href="{{ ad.linkUrl }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">
-                                                {{ ad.linkUrl }}
-                                            </a>
-                                        </td>
-                                        <td>{{ ad.impressions }}</td>
-                                        <td>{{ ad.clicks }}</td>
-                                        <td>
-                                            {% if ad.impressions > 0 %}
-                                                {{ (ad.clicks / ad.impressions * 100) | round(2) }}%
-                                            {% else %}
-                                                0%
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if ad.lastShown %}
-                                                {{ ad.lastShown.split('T')[0] }}
-                                            {% else %}
-                                                Nunca exibido
-                                            {% endif %}
-                                        </td>
-                                        <td class="action-buttons">
-                                            <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-sm btn-outline-primary" title="Editar">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <form class="delete-form" action="/delete-fullscreen/{{ ad.id }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este anúncio?');">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                        
+                        <!-- Lista simplificada de anúncios de tela cheia com botões de editar e deletar -->
+                        <div class="list-group">
+                            {% for ad in metrics.fullscreen.ads %}
+                            <div class="ad-list-item">
+                                <div>
+                                    <strong>{{ loop.index }}.</strong> {{ ad.title }}
+                                </div>
+                                <div class="ad-actions">
+                                    <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-success" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este anúncio?');">
+                                        <button type="submit" class="btn btn-danger" title="Excluir">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            {% if metrics.fullscreen.ads|length == 0 %}
+                            <div class="text-center py-3">
+                                <p class="text-muted">Nenhum anúncio de tela cheia cadastrado.</p>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
