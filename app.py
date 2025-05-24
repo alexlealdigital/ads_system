@@ -428,6 +428,7 @@ def dashboard():
             return render_template('error.html', message="Modelo de anúncios não inicializado")
         
         metrics = ads_model.get_metrics()
+        logger.info(f"Métricas para dashboard: {metrics}")
         return render_template('dashboard.html', metrics=metrics)
     except Exception as e:
         logger.error(f"Erro ao renderizar dashboard: {e}")
@@ -532,4 +533,4 @@ def debug():
     return jsonify(info)
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
