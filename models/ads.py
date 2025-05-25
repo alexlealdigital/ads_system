@@ -1,368 +1,654 @@
-"""
-Modelo de dados para o sistema de anúncios.
-Gerencia banners e anúncios de tela cheia.
-"""
-import os
-import json
-import logging
-from datetime import datetime
+/**
+ * Sistema de Anúncios para Jogos Unity WebGL
+ * Versão: 2.0.0
+ * 
+ * Este script gerencia a exibição de banners (360x47px) e anúncios de tela cheia (360x640px)
+ * em jogos Unity WebGL, com suporte a rastreamento de impressões e cliques.
+ * 
+ * Corrigido para garantir visibilidade dentro da área do jogo e compatibilidade com o backend.
+ */
 
-class AdModel:
-    """
-    Modelo para gerenciar anúncios no sistema.
-    Suporta banners (360x47px) e anúncios de tela cheia (360x640px).
-    """
-    
-    def __init__(self, data_dir='data', data_file=None):
-        """
-        Inicializa o modelo com o diretório de dados especificado.
-        
-        Args:
-            data_dir (str): Diretório onde os dados serão armazenados
-            data_file (str): Arquivo de dados opcional (para compatibilidade)
-        """
-        self.data_dir = data_dir
-        self.banners_file = os.path.join(data_dir, 'banners.json')
-        self.fullscreen_file = os.path.join(data_dir, 'fullscreen.json')
-        self.stats_file = os.path.join(data_dir, 'stats.json')
-        
-        # Criar diretório de dados se não existir
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-        
-        # Inicializar arquivos se não existirem
-        self._init_file(self.banners_file, [])
-        self._init_file(self.fullscreen_file, [])
-        self._init_file(self.stats_file, {'impressions': {}, 'clicks': {}})
-    
-    def _init_file(self, file_path, default_data):
-        """
-        Inicializa um arquivo com dados padrão se não existir.
-        
-        Args:
-            file_path (str): Caminho do arquivo
-            default_data (any): Dados padrão para inicializar o arquivo
-        """
-        if not os.path.exists(file_path):
-            with open(file_path, 'w') as f:
-                json.dump(default_data, f)
-    
-    def _load_data(self, file_path):
-        """
-        Carrega dados de um arquivo JSON.
-        
-        Args:
-            file_path (str): Caminho do arquivo
-            
-        Returns:
-            dict: Dados carregados do arquivo
-        """
-        try:
-            with open(file_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logging.error(f"Erro ao carregar dados de {file_path}: {str(e)}")
-            if file_path.endswith('stats.json'):
-                return {'impressions': {}, 'clicks': {}}
-            return []
-    
-    def _save_data(self, file_path, data):
-        """
-        Salva dados em um arquivo JSON.
-        
-        Args:
-            file_path (str): Caminho do arquivo
-            data (any): Dados a serem salvos
-            
-        Returns:
-            bool: True se os dados foram salvos com sucesso, False caso contrário
-        """
-        try:
-            with open(file_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            return True
-        except Exception as e:
-            logging.error(f"Erro ao salvar dados em {file_path}: {str(e)}")
-            return False
-    
-    def get_banners(self):
-        """
-        Obtém todos os banners.
-        
-        Returns:
-            list: Lista de banners
-        """
-        return self._load_data(self.banners_file)
-    
-    def get_fullscreen_ads(self):
-        """
-        Obtém todos os anúncios de tela cheia.
-        
-        Returns:
-            list: Lista de anúncios de tela cheia
-        """
-        return self._load_data(self.fullscreen_file)
-    
-    def add_banner(self, title, image_url, target_url):
-        """
-        Adiciona um novo banner.
-        
-        Args:
-            title (str): Título do banner
-            image_url (str): URL da imagem do banner
-            target_url (str): URL de destino do banner
-            
-        Returns:
-            dict: Banner adicionado
-        """
-        banners = self.get_banners()
-        
-        # Gerar ID único
-        banner_id = str(len(banners) + 1)
-        
-        # Criar banner
-        banner = {
-            'id': banner_id,
-            'title': title,
-            'imageUrl': image_url,
-            'targetUrl': target_url,
-            'createdAt': datetime.now().isoformat()
-        }
-        
-        # Adicionar banner à lista
-        banners.append(banner)
-        
-        # Salvar lista atualizada
-        self._save_data(self.banners_file, banners)
-        
-        return banner
-    
-    def add_fullscreen_ad(self, title, image_url, target_url):
-        """
-        Adiciona um novo anúncio de tela cheia.
-        
-        Args:
-            title (str): Título do anúncio
-            image_url (str): URL da imagem do anúncio
-            target_url (str): URL de destino do anúncio
-            
-        Returns:
-            dict: Anúncio adicionado
-        """
-        ads = self.get_fullscreen_ads()
-        
-        # Gerar ID único
-        ad_id = str(len(ads) + 1)
-        
-        # Criar anúncio
-        ad = {
-            'id': ad_id,
-            'title': title,
-            'imageUrl': image_url,
-            'targetUrl': target_url,
-            'createdAt': datetime.now().isoformat()
-        }
-        
-        # Adicionar anúncio à lista
-        ads.append(ad)
-        
-        # Salvar lista atualizada
-        self._save_data(self.fullscreen_file, ads)
-        
-        return ad
-    
-    def record_impression(self, ad_id, ad_type):
-        """
-        Registra uma impressão de anúncio.
-        
-        Args:
-            ad_id (str): ID do anúncio
-            ad_type (str): Tipo do anúncio ('banner' ou 'fullscreen')
-            
-        Returns:
-            bool: True se a impressão foi registrada com sucesso, False caso contrário
-        """
-        stats = self._load_data(self.stats_file)
-        
-        # Inicializar contadores se necessário
-        if 'impressions' not in stats:
-            stats['impressions'] = {}
-        
-        key = f"{ad_type}_{ad_id}"
-        
-        if key not in stats['impressions']:
-            stats['impressions'][key] = 0
-        
-        # Incrementar contador
-        stats['impressions'][key] += 1
-        
-        # Salvar estatísticas atualizadas
-        return self._save_data(self.stats_file, stats)
-    
-    def record_click(self, ad_id, ad_type):
-        """
-        Registra um clique em anúncio.
-        
-        Args:
-            ad_id (str): ID do anúncio
-            ad_type (str): Tipo do anúncio ('banner' ou 'fullscreen')
-            
-        Returns:
-            bool: True se o clique foi registrado com sucesso, False caso contrário
-        """
-        stats = self._load_data(self.stats_file)
-        
-        # Inicializar contadores se necessário
-        if 'clicks' not in stats:
-            stats['clicks'] = {}
-        
-        key = f"{ad_type}_{ad_id}"
-        
-        if key not in stats['clicks']:
-            stats['clicks'][key] = 0
-        
-        # Incrementar contador
-        stats['clicks'][key] += 1
-        
-        # Salvar estatísticas atualizadas
-        return self._save_data(self.stats_file, stats)
-    
-    def get_stats(self):
-        """
-        Obtém estatísticas de impressões e cliques.
-        
-        Returns:
-            dict: Estatísticas de impressões e cliques
-        """
-        return self._load_data(self.stats_file)
-    
-    def get_banner_stats(self):
-        """
-        Obtém estatísticas detalhadas de banners.
-        
-        Returns:
-            list: Lista de banners com estatísticas
-        """
-        banners = self.get_banners()
-        stats = self.get_stats()
-        
-        for banner in banners:
-            banner_id = banner['id']
-            key = f"banner_{banner_id}"
-            
-            banner['impressions'] = stats.get('impressions', {}).get(key, 0)
-            banner['clicks'] = stats.get('clicks', {}).get(key, 0)
-            
-            # Calcular taxa de cliques
-            if banner['impressions'] > 0:
-                banner['ctr'] = round(banner['clicks'] / banner['impressions'] * 100, 2)
-            else:
-                banner['ctr'] = 0
-        
-        return banners
-    
-    def get_fullscreen_stats(self):
-        """
-        Obtém estatísticas detalhadas de anúncios de tela cheia.
-        
-        Returns:
-            list: Lista de anúncios de tela cheia com estatísticas
-        """
-        ads = self.get_fullscreen_ads()
-        stats = self.get_stats()
-        
-        for ad in ads:
-            ad_id = ad['id']
-            key = f"fullscreen_{ad_id}"
-            
-            ad['impressions'] = stats.get('impressions', {}).get(key, 0)
-            ad['clicks'] = stats.get('clicks', {}).get(key, 0)
-            
-            # Calcular taxa de cliques
-            if ad['impressions'] > 0:
-                ad['ctr'] = round(ad['clicks'] / ad['impressions'] * 100, 2)
-            else:
-                ad['ctr'] = 0
-        
-        return ads
-    
-    def get_metrics(self):
-        """
-        Obtém métricas completas para o dashboard.
-        
-        Returns:
-            dict: Métricas formatadas para o dashboard
-        """
-        # Preparar métricas para banners
-        banner_ads = []
-        total_banner_impressions = 0
-        total_banner_clicks = 0
-        
-        for banner in self.get_banners():
-            banner_id = banner['id']
-            key = f"banner_{banner_id}"
-            stats = self.get_stats()
-            impressions = stats.get('impressions', {}).get(key, 0)
-            clicks = stats.get('clicks', {}).get(key, 0)
-            
-            total_banner_impressions += impressions
-            total_banner_clicks += clicks
-            
-            banner_with_metrics = banner.copy()
-            banner_with_metrics['impressions'] = impressions
-            banner_with_metrics['clicks'] = clicks
-            banner_with_metrics['linkUrl'] = banner['targetUrl']  # Compatibilidade com o template
-            banner_with_metrics['lastShown'] = banner.get('createdAt', '')
-            
-            banner_ads.append(banner_with_metrics)
-        
-        # Calcular CTR para banners
-        banner_ctr = 0
-        if total_banner_impressions > 0:
-            banner_ctr = round((total_banner_clicks / total_banner_impressions) * 100, 2)
-        
-        # Preparar métricas para anúncios de tela cheia
-        fullscreen_ads = []
-        total_fullscreen_impressions = 0
-        total_fullscreen_clicks = 0
-        
-        for ad in self.get_fullscreen_ads():
-            ad_id = ad['id']
-            key = f"fullscreen_{ad_id}"
-            stats = self.get_stats()
-            impressions = stats.get('impressions', {}).get(key, 0)
-            clicks = stats.get('clicks', {}).get(key, 0)
-            
-            total_fullscreen_impressions += impressions
-            total_fullscreen_clicks += clicks
-            
-            ad_with_metrics = ad.copy()
-            ad_with_metrics['impressions'] = impressions
-            ad_with_metrics['clicks'] = clicks
-            ad_with_metrics['linkUrl'] = ad['targetUrl']  # Compatibilidade com o template
-            ad_with_metrics['lastShown'] = ad.get('createdAt', '')
-            
-            fullscreen_ads.append(ad_with_metrics)
-        
-        # Calcular CTR para anúncios de tela cheia
-        fullscreen_ctr = 0
-        if total_fullscreen_impressions > 0:
-            fullscreen_ctr = round((total_fullscreen_clicks / total_fullscreen_impressions) * 100, 2)
-        
-        # Estrutura final de métricas
-        return {
-            'banner': {
-                'ads': banner_ads,
-                'ads_count': len(self.get_banners()),
-                'total_impressions': total_banner_impressions,
-                'total_clicks': total_banner_clicks,
-                'ctr': banner_ctr
-            },
-            'fullscreen': {
-                'ads': fullscreen_ads,
-                'ads_count': len(self.get_fullscreen_ads()),
-                'total_impressions': total_fullscreen_impressions,
-                'total_clicks': total_fullscreen_clicks,
-                'ctr': fullscreen_ctr
+// Namespace isolado para evitar conflitos
+const AdSystem = (function() {
+    // Configurações
+    const config = {
+        apiBaseUrl: 'https://ads-system-backend.onrender.com',
+        bannerEndpoint: '/api/banners',
+        fullscreenEndpoint: '/api/fullscreen',
+        impressionEndpoint: '/api/impression',
+        clickEndpoint: '/api/click',
+        bannerRotationInterval: 5000, // 5 segundos
+        retryInterval: 10000, // 10 segundos
+        debug: true
+    };
+
+    // Estado interno
+    const state = {
+        banners: [],
+        fullscreenAds: [],
+        currentBannerIndex: 0,
+        bannerContainer: null,
+        fullscreenContainer: null,
+        bannerRotationTimer: null,
+        retryTimer: null,
+        unityInstance: null,
+        unityCanvas: null,
+        initialized: false,
+        loading: false
+    };
+
+    // Sistema de logs
+    const log = {
+        info: function(message) {
+            if (config.debug) {
+                console.log(`[AdSystem ${new Date().toLocaleTimeString()}] ℹ️ ${message}`);
+            }
+        },
+        warn: function(message) {
+            if (config.debug) {
+                console.log(`[AdSystem ${new Date().toLocaleTimeString()}] ⚠️ ${message}`);
+            }
+        },
+        error: function(message) {
+            if (config.debug) {
+                console.log(`[AdSystem ${new Date().toLocaleTimeString()}] ❌ ${message}`);
             }
         }
+    };
+
+    // Utilitários
+    const utils = {
+        // Cria um elemento DOM com atributos
+        createElement: function(tag, attributes = {}, styles = {}) {
+            const element = document.createElement(tag);
+            
+            // Aplicar atributos
+            Object.keys(attributes).forEach(key => {
+                element.setAttribute(key, attributes[key]);
+            });
+            
+            // Aplicar estilos
+            Object.keys(styles).forEach(key => {
+                element.style[key] = styles[key];
+            });
+            
+            return element;
+        },
+        
+        // Encontra o canvas do Unity
+        findUnityCanvas: function() {
+            // Tentar encontrar pelo ID padrão
+            let canvas = document.getElementById('unity-canvas');
+            
+            // Se não encontrar pelo ID, procurar por qualquer canvas
+            if (!canvas) {
+                const canvases = document.getElementsByTagName('canvas');
+                if (canvases.length > 0) {
+                    canvas = canvases[0];
+                }
+            }
+            
+            // Se ainda não encontrou, procurar pelo container do Unity
+            if (!canvas) {
+                const unityContainer = document.getElementById('unity-container');
+                if (unityContainer) {
+                    const canvases = unityContainer.getElementsByTagName('canvas');
+                    if (canvases.length > 0) {
+                        canvas = canvases[0];
+                    }
+                }
+            }
+            
+            return canvas;
+        },
+        
+        // Faz uma requisição fetch com tratamento de erros
+        fetchWithTimeout: async function(url, options = {}, timeout = 5000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            options.signal = controller.signal;
+            
+            try {
+                const response = await fetch(url, options);
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+    };
+
+    // Funções principais
+    const api = {
+        // Inicializa o sistema de anúncios
+        init: function(unityInstance = null) {
+            if (state.initialized) {
+                log.warn('Sistema de anúncios já inicializado');
+                return;
+            }
+            
+            log.info('Inicializando sistema de anúncios...');
+            
+            // Armazenar referência ao Unity
+            state.unityInstance = unityInstance;
+            
+            // Encontrar o canvas do Unity
+            state.unityCanvas = utils.findUnityCanvas();
+            if (!state.unityCanvas) {
+                log.warn('Canvas do Unity não encontrado. Tentando novamente em 1 segundo...');
+                setTimeout(() => api.init(unityInstance), 1000);
+                return;
+            }
+            
+            log.info('Canvas do Unity encontrado');
+            
+            // Criar containers para os anúncios
+            api.createAdContainers();
+            
+            // Carregar anúncios
+            api.loadBanners();
+            api.loadFullscreenAds();
+            
+            state.initialized = true;
+        },
+        
+        // Cria os containers para os anúncios
+        createAdContainers: function() {
+            // Criar container para banners
+            if (!state.bannerContainer) {
+                state.bannerContainer = utils.createElement('div', {
+                    id: 'ad-banner-container'
+                }, {
+                    position: 'absolute',
+                    top: '0',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '360px',
+                    height: '47px',
+                    zIndex: '9999',
+                    display: 'none',
+                    overflow: 'hidden',
+                    backgroundColor: 'transparent'
+                });
+                
+                // Anexar ao DOM
+                if (state.unityCanvas && state.unityCanvas.parentElement) {
+                    state.unityCanvas.parentElement.appendChild(state.bannerContainer);
+                    log.info('Container de banner criado e anexado ao DOM');
+                } else {
+                    document.body.appendChild(state.bannerContainer);
+                    log.warn('Container de banner anexado ao body (canvas parent não encontrado)');
+                }
+            }
+            
+            // Criar container para anúncios de tela cheia
+            if (!state.fullscreenContainer) {
+                state.fullscreenContainer = utils.createElement('div', {
+                    id: 'ad-fullscreen-container'
+                }, {
+                    position: 'absolute',
+                    top: '0',
+                    left: '0',
+                    width: '100%',
+                    height: '100%',
+                    zIndex: '10000',
+                    display: 'none',
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                });
+                
+                // Anexar ao DOM
+                if (state.unityCanvas && state.unityCanvas.parentElement) {
+                    state.unityCanvas.parentElement.appendChild(state.fullscreenContainer);
+                    log.info('Container de anúncio de tela cheia criado e anexado ao DOM');
+                } else {
+                    document.body.appendChild(state.fullscreenContainer);
+                    log.warn('Container de anúncio de tela cheia anexado ao body (canvas parent não encontrado)');
+                }
+            }
+        },
+        
+        // Carrega os banners do servidor
+        loadBanners: function() {
+            if (state.loading) return;
+            state.loading = true;
+            
+            log.info('Carregando banners...');
+            
+            fetch(`${config.apiBaseUrl}${config.bannerEndpoint}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Resposta não ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    state.banners = data;
+                    log.info(`${state.banners.length} banners carregados`);
+                    
+                    if (state.banners.length > 0) {
+                        api.startBannerRotation();
+                    }
+                    
+                    state.loading = false;
+                })
+                .catch(error => {
+                    log.error(`Erro ao carregar banners: ${error.message}`);
+                    state.loading = false;
+                    
+                    // Tentar novamente após um intervalo
+                    if (!state.retryTimer) {
+                        state.retryTimer = setTimeout(() => {
+                            state.retryTimer = null;
+                            api.loadBanners();
+                        }, config.retryInterval);
+                    }
+                });
+        },
+        
+        // Carrega os anúncios de tela cheia do servidor
+        loadFullscreenAds: function() {
+            log.info('Carregando anúncios de tela cheia...');
+            
+            fetch(`${config.apiBaseUrl}${config.fullscreenEndpoint}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Resposta não ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    state.fullscreenAds = data;
+                    log.info(`${state.fullscreenAds.length} anúncios de tela cheia carregados`);
+                })
+                .catch(error => {
+                    log.error(`Erro ao carregar anúncios de tela cheia: ${error.message}`);
+                });
+        },
+        
+        // Inicia a rotação de banners
+        startBannerRotation: function() {
+            if (state.bannerRotationTimer) {
+                clearInterval(state.bannerRotationTimer);
+            }
+            
+            // Mostrar o primeiro banner
+            api.showNextBanner();
+            
+            // Iniciar rotação
+            state.bannerRotationTimer = setInterval(() => {
+                api.showNextBanner();
+            }, config.bannerRotationInterval);
+            
+            log.info('Rotação de banners iniciada');
+        },
+        
+        // Mostra o próximo banner na rotação
+        showNextBanner: function() {
+            if (state.banners.length === 0) {
+                log.warn('Nenhum banner disponível para exibição');
+                return;
+            }
+            
+            // Avançar para o próximo banner
+            state.currentBannerIndex = (state.currentBannerIndex + 1) % state.banners.length;
+            const banner = state.banners[state.currentBannerIndex];
+            
+            // Mostrar o banner
+            api.showBanner(banner);
+        },
+        
+        // Mostra um banner específico
+        showBanner: function(banner) {
+            if (!state.bannerContainer) {
+                log.error('Container de banner não inicializado');
+                return;
+            }
+            
+            // Limpar container
+            state.bannerContainer.innerHTML = '';
+            
+            // Criar elemento de banner
+            const bannerElement = utils.createElement('div', {
+                class: 'ad-banner',
+                'data-id': banner.id
+            }, {
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer',
+                position: 'relative'
+            });
+            
+            // Criar imagem do banner
+            const bannerImage = utils.createElement('img', {
+                src: banner.imageUrl,
+                alt: banner.title
+            }, {
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+            });
+            
+            // Adicionar evento de clique
+            bannerElement.addEventListener('click', () => {
+                api.handleBannerClick(banner);
+            });
+            
+            // Montar banner
+            bannerElement.appendChild(bannerImage);
+            state.bannerContainer.appendChild(bannerElement);
+            
+            // Exibir container
+            state.bannerContainer.style.display = 'block';
+            
+            // Registrar impressão
+            api.recordImpression(banner.id, 'banner');
+            
+            log.info(`Banner exibido: ${banner.title} (ID: ${banner.id})`);
+        },
+        
+        // Mostra um anúncio de tela cheia
+        showFullscreenAd: function() {
+            if (state.fullscreenAds.length === 0) {
+                log.warn('Nenhum anúncio de tela cheia disponível');
+                return false;
+            }
+            
+            // Selecionar um anúncio aleatório
+            const randomIndex = Math.floor(Math.random() * state.fullscreenAds.length);
+            const ad = state.fullscreenAds[randomIndex];
+            
+            if (!state.fullscreenContainer) {
+                log.error('Container de anúncio de tela cheia não inicializado');
+                return false;
+            }
+            
+            // Limpar container
+            state.fullscreenContainer.innerHTML = '';
+            
+            // Criar wrapper para centralizar o anúncio
+            const adWrapper = utils.createElement('div', {
+                class: 'ad-fullscreen-wrapper'
+            }, {
+                position: 'relative',
+                width: '360px',
+                height: '640px',
+                margin: '0 auto',
+                backgroundColor: '#fff',
+                boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)'
+            });
+            
+            // Criar elemento de anúncio
+            const adElement = utils.createElement('div', {
+                class: 'ad-fullscreen',
+                'data-id': ad.id
+            }, {
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer',
+                position: 'relative'
+            });
+            
+            // Criar imagem do anúncio
+            const adImage = utils.createElement('img', {
+                src: ad.imageUrl,
+                alt: ad.title
+            }, {
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+            });
+            
+            // Criar botão de fechar
+            const closeButton = utils.createElement('button', {
+                class: 'ad-close-button',
+                title: 'Fechar'
+            }, {
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                color: '#fff',
+                border: 'none',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: '1'
+            });
+            closeButton.innerHTML = '&times;';
+            
+            // Adicionar evento de clique no anúncio
+            adElement.addEventListener('click', (e) => {
+                // Ignorar clique se for no botão de fechar
+                if (e.target !== closeButton && !closeButton.contains(e.target)) {
+                    api.handleFullscreenAdClick(ad);
+                }
+            });
+            
+            // Adicionar evento de clique no botão de fechar
+            closeButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                api.hideFullscreenAd();
+            });
+            
+            // Montar anúncio
+            adElement.appendChild(adImage);
+            adElement.appendChild(closeButton);
+            adWrapper.appendChild(adElement);
+            state.fullscreenContainer.appendChild(adWrapper);
+            
+            // Exibir container
+            state.fullscreenContainer.style.display = 'flex';
+            
+            // Registrar impressão
+            api.recordImpression(ad.id, 'fullscreen');
+            
+            log.info(`Anúncio de tela cheia exibido: ${ad.title} (ID: ${ad.id})`);
+            
+            return true;
+        },
+        
+        // Esconde o anúncio de tela cheia
+        hideFullscreenAd: function() {
+            if (state.fullscreenContainer) {
+                state.fullscreenContainer.style.display = 'none';
+                log.info('Anúncio de tela cheia fechado');
+            }
+        },
+        
+        // Trata o clique em um banner
+        handleBannerClick: function(banner) {
+            log.info(`Banner clicado: ${banner.title} (ID: ${banner.id})`);
+            
+            // Registrar clique
+            api.recordClick(banner.id, 'banner');
+            
+            // Abrir URL de destino
+            const targetUrl = banner.targetUrl || banner.linkUrl;
+            if (targetUrl) {
+                window.open(targetUrl, '_blank');
+            }
+        },
+        
+        // Trata o clique em um anúncio de tela cheia
+        handleFullscreenAdClick: function(ad) {
+            log.info(`Anúncio de tela cheia clicado: ${ad.title} (ID: ${ad.id})`);
+            
+            // Registrar clique
+            api.recordClick(ad.id, 'fullscreen');
+            
+            // Abrir URL de destino
+            const targetUrl = ad.targetUrl || ad.linkUrl;
+            if (targetUrl) {
+                window.open(targetUrl, '_blank');
+            }
+            
+            // Fechar anúncio
+            api.hideFullscreenAd();
+        },
+        
+        // Registra uma impressão
+        recordImpression: function(adId, adType) {
+            fetch(`${config.apiBaseUrl}${config.impressionEndpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    adId: adId,
+                    type: adType
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Resposta não ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                log.info(`Impressão registrada: ${adType} ${adId}`);
+            })
+            .catch(error => {
+                log.error(`Erro ao registrar impressão: ${error.message}`);
+            });
+        },
+        
+        // Registra um clique
+        recordClick: function(adId, adType) {
+            fetch(`${config.apiBaseUrl}${config.clickEndpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    adId: adId,
+                    type: adType
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Resposta não ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                log.info(`Clique registrado: ${adType} ${adId}`);
+            })
+            .catch(error => {
+                log.error(`Erro ao registrar clique: ${error.message}`);
+            });
+        },
+        
+        // Mostra um anúncio de tela cheia após game over
+        showGameOverAd: function() {
+            return api.showFullscreenAd();
+        },
+        
+        // Diagnóstico do sistema
+        diagnose: function() {
+            log.info('--- Diagnóstico do Sistema de Anúncios ---');
+            log.info(`Inicializado: ${state.initialized}`);
+            log.info(`Banners carregados: ${state.banners.length}`);
+            log.info(`Anúncios de tela cheia carregados: ${state.fullscreenAds.length}`);
+            log.info(`Container de banner existe: ${!!state.bannerContainer}`);
+            log.info(`Container de anúncio de tela cheia existe: ${!!state.fullscreenContainer}`);
+            log.info(`Canvas do Unity encontrado: ${!!state.unityCanvas}`);
+            
+            if (state.bannerContainer) {
+                log.info(`Visibilidade do container de banner: ${state.bannerContainer.style.display}`);
+                log.info(`Z-index do container de banner: ${state.bannerContainer.style.zIndex}`);
+                log.info(`Posição do container de banner: top=${state.bannerContainer.style.top}, left=${state.bannerContainer.style.left}`);
+            }
+            
+            return {
+                initialized: state.initialized,
+                bannersLoaded: state.banners.length,
+                fullscreenAdsLoaded: state.fullscreenAds.length,
+                bannerContainerExists: !!state.bannerContainer,
+                fullscreenContainerExists: !!state.fullscreenContainer,
+                unityCanvasFound: !!state.unityCanvas
+            };
+        },
+        
+        // Verifica e corrige a visibilidade dos containers
+        checkVisibility: function() {
+            if (!state.initialized) return;
+            
+            if (state.bannerContainer) {
+                // Garantir que o container de banner esteja visível
+                if (state.bannerContainer.style.display === 'none' && state.banners.length > 0) {
+                    state.bannerContainer.style.display = 'block';
+                    log.info('Visibilidade do container de banner corrigida');
+                }
+                
+                // Garantir que o z-index seja alto o suficiente
+                if (parseInt(state.bannerContainer.style.zIndex) < 9999) {
+                    state.bannerContainer.style.zIndex = '9999';
+                    log.info('Z-index do container de banner corrigido');
+                }
+            }
+        }
+    };
+
+    // Iniciar verificação periódica de visibilidade
+    setInterval(() => {
+        api.checkVisibility();
+    }, 5000);
+
+    // Inicializar quando o documento estiver pronto
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(() => api.init(), 1000);
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => api.init(), 1000);
+        });
+    }
+
+    // Interface pública
+    return {
+        init: api.init,
+        showBanner: api.showBanner,
+        showFullscreenAd: api.showFullscreenAd,
+        hideFullscreenAd: api.hideFullscreenAd,
+        showGameOverAd: api.showGameOverAd,
+        diagnose: api.diagnose
+    };
+})();
+
+// Compatibilidade com Unity
+function showBanner() {
+    return AdSystem.showBanner();
+}
+
+function showFullscreenAd() {
+    return AdSystem.showFullscreenAd();
+}
+
+function hideFullscreenAd() {
+    return AdSystem.hideFullscreenAd();
+}
+
+function showGameOverAd() {
+    return AdSystem.showGameOverAd();
+}
+
+// Inicializar quando o Unity estiver pronto
+window.addEventListener('unityReady', function(e) {
+    AdSystem.init(e.detail.unityInstance);
+});
+
+// Log de inicialização
+console.log('[AdSystem] Sistema de anúncios carregado e pronto para inicialização');
