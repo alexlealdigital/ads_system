@@ -1,31 +1,111 @@
-from flask import Flask, render_template, request, redirect, url_for
+import firebase_admin
+from firebase_admin import credentials, db as firebase_rtdb # Renomeado para evitar conflito com 'db' local se houver
+from flask import Flask, render_template, request, redirect, url_for, jsonify # jsonify adicionado
+import os
 import logging
+from flask_cors import CORS # Se for usar CORS, mantenha
 
+# --- CONFIGURAÇÃO INICIAL DA APLICAÇÃO E LOGGING ---
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO) # Ou DEBUG para mais detalhes
 
-# Configuração básica de logging
-# Isso fará com que os logs apareçam no console onde você executa o 'flask run' ou 'python app.py'
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+# --- CONFIGURAÇÃO CORS (se necessário para este app, adapte do seu server.py) ---
+# Exemplo simples, ajuste conforme a necessidade para este dashboard
+CORS(app, resources={r"/*": {"origins": "*"}}) # Permite todas as origens para todas as rotas deste app
 
-# Simulação de um "banco de dados" em memória
-db = {
-    "banners": [],
-    "fullscreen_ads": [],
-    "next_banner_id": 1,
-    "next_fullscreen_id": 1
+# --- CONFIGURAÇÃO DAS CREDENCIAIS FIREBASE (adaptado do seu server.py) ---
+FIREBASE_CREDENTIALS = {
+    "type": os.getenv("FIREBASE_TYPE"),
+    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n'),
+    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER"),
+    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
 }
+
+FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
+
+# --- INICIALIZAÇÃO FIREBASE ---
+def init_firebase():
+    if not FIREBASE_DB_URL:
+        app.logger.error("🔥 ERRO Firebase: FIREBASE_DB_URL não configurada nas variáveis de ambiente.")
+        return False
+    if not firebase_admin._apps: # Verifica se já existe uma app default inicializada
+        try:
+            # Verifica se todas as credenciais essenciais estão presentes
+            required_creds = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri", "auth_provider_x509_cert_url", "client_x509_cert_url"]
+            missing_creds = [key for key in required_creds if not FIREBASE_CREDENTIALS.get(key)]
+            if missing_creds:
+                app.logger.error(f"🔥 ERRO Firebase: Credenciais faltando nas variáveis de ambiente: {', '.join(missing_creds)}")
+                return False
+
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': FIREBASE_DB_URL
+            })
+            app.logger.info("✅ Firebase Admin SDK inicializado com sucesso para o Dashboard!")
+            return True
+        except Exception as e:
+            app.logger.error(f"🔥 ERRO Firebase ao inicializar: {str(e)}", exc_info=True)
+            return False
+    app.logger.info("✅ Firebase Admin SDK já estava inicializado.")
+    return True
+
+# Chamada de inicialização do Firebase (importante para Render)
+# Gunicorn (usado pelo Render) pode não executar o bloco if __name__ == '__main__' da mesma forma.
+# É mais seguro chamar a inicialização uma vez no escopo global ou no início da criação do app.
+# No entanto, para evitar problemas com o reloader do Flask em desenvolvimento local,
+# a função init_firebase() será chamada no início de cada rota que precisa do Firebase,
+# e ela própria impede re-inicializações.
 
 def calculate_ctr(clicks, impressions):
     if impressions == 0:
         return 0.0
     return round((clicks / impressions) * 100, 2)
 
+# --- ROTAS DO DASHBOARD DE ANÚNCIOS ---
+
 @app.route('/')
 def dashboard():
     app.logger.info("Acessando a rota do Dashboard ('/')")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase. Verifique os logs do servidor."), 500
 
-    # Preparando dados dos Banners
-    banner_ads_list = db["banners"]
+    banner_ads_list = []
+    fullscreen_ads_list = []
+    try:
+        # Buscar banners do Firebase RTDB
+        banners_ref = firebase_rtdb.reference('ads/banners')
+        all_banners = banners_ref.order_by_child('created_at').get() # Ordena por 'created_at'
+        if all_banners:
+            for ad_id, ad_data in all_banners.items():
+                if isinstance(ad_data, dict): # Garante que é um dicionário de anúncio
+                    ad_data['id'] = ad_id
+                    banner_ads_list.append(ad_data)
+            banner_ads_list.reverse() # Para mostrar os mais recentes primeiro (se created_at for timestamp crescente)
+        app.logger.debug(f"Banners carregados do Firebase: {len(banner_ads_list)} itens.")
+
+        # Buscar anúncios de tela cheia do Firebase RTDB
+        fullscreen_ref = firebase_rtdb.reference('ads/fullscreen_ads')
+        all_fullscreen = fullscreen_ref.order_by_child('created_at').get()
+        if all_fullscreen:
+            for ad_id, ad_data in all_fullscreen.items():
+                if isinstance(ad_data, dict):
+                    ad_data['id'] = ad_id
+                    fullscreen_ads_list.append(ad_data)
+            fullscreen_ads_list.reverse()
+        app.logger.debug(f"Anúncios de tela cheia carregados do Firebase: {len(fullscreen_ads_list)} itens.")
+
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar dados do Firebase para o dashboard: {e}", exc_info=True)
+        # Considerar renderizar a página de erro aqui também ou apenas com listas vazias
+        # return render_template('error.html', message="Erro ao carregar dados do Firebase."), 500
+
+
     total_banner_impressions = sum(ad.get('impressions', 0) for ad in banner_ads_list)
     total_banner_clicks = sum(ad.get('clicks', 0) for ad in banner_ads_list)
     banner_ctr = calculate_ctr(total_banner_clicks, total_banner_impressions)
@@ -34,12 +114,9 @@ def dashboard():
         "ads_count": len(banner_ads_list),
         "total_impressions": total_banner_impressions,
         "ctr": banner_ctr,
-        "ads": banner_ads_list  # Esta é a lista que o template itera
+        "ads": banner_ads_list
     }
-    app.logger.debug(f"Métricas de Banner preparadas: {metrics_banner}")
 
-    # Preparando dados dos Anúncios de Tela Cheia
-    fullscreen_ads_list = db["fullscreen_ads"]
     total_fullscreen_impressions = sum(ad.get('impressions', 0) for ad in fullscreen_ads_list)
     total_fullscreen_clicks = sum(ad.get('clicks', 0) for ad in fullscreen_ads_list)
     fullscreen_ctr = calculate_ctr(total_fullscreen_clicks, total_fullscreen_impressions)
@@ -48,22 +125,22 @@ def dashboard():
         "ads_count": len(fullscreen_ads_list),
         "total_impressions": total_fullscreen_impressions,
         "ctr": fullscreen_ctr,
-        "ads": fullscreen_ads_list  # Esta é a lista que o template itera
+        "ads": fullscreen_ads_list
     }
-    app.logger.debug(f"Métricas de Tela Cheia preparadas: {metrics_fullscreen}")
 
     metrics_data = {
         "banner": metrics_banner,
         "fullscreen": metrics_fullscreen
     }
     app.logger.info(f"Dados finais enviados para o template dashboard.html: {metrics_data}")
-
-    # Renderiza 'dashboard.html' que você já possui
     return render_template('dashboard.html', metrics=metrics_data)
 
 @app.route('/add-banner', methods=['GET', 'POST'])
 def add_banner():
     app.logger.info(f"Acessando a rota '/add-banner' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+
     if request.method == 'POST':
         try:
             title = request.form['title']
@@ -71,30 +148,86 @@ def add_banner():
             targetUrl = request.form['targetUrl']
             app.logger.info(f"Dados recebidos do formulário de banner: Título='{title}', ImageURL='{imageUrl}', TargetURL='{targetUrl}'")
 
-            new_banner = {
-                "id": db["next_banner_id"],
-                "title": title,
-                "imageUrl": imageUrl,
-                "targetUrl": targetUrl,
-                "impressions": 0, # Inicializa com 0
-                "clicks": 0       # Inicializa com 0
-            }
-            db["banners"].append(new_banner)
-            db["next_banner_id"] += 1
-            app.logger.info(f"Novo banner adicionado com sucesso: {new_banner}")
-            app.logger.debug(f"Estado atual dos banners no DB: {db['banners']}")
+            ads_ref = firebase_rtdb.reference('ads/banners')
+            new_ad_ref = ads_ref.push({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl,
+                'impressions': 0,
+                'clicks': 0,
+                'created_at': firebase_rtdb.SERVER_TIMESTAMP # Timestamp do servidor Firebase
+            })
+            app.logger.info(f"Novo banner adicionado ao Firebase RTDB com ID: {new_ad_ref.key}")
             return redirect(url_for('dashboard'))
         except Exception as e:
-            app.logger.error(f"Erro ao adicionar banner: {e}", exc_info=True)
-            # Em um app real, você poderia renderizar uma página de erro ou retornar uma mensagem
+            app.logger.error(f"Erro ao adicionar banner ao Firebase RTDB: {e}", exc_info=True)
             return render_template('error.html', message="Erro ao adicionar o banner.")
-
-    # Renderiza 'add_banner.html' que você já possui
     return render_template('add_banner.html')
+
+@app.route('/edit-banner/<string:ad_id>', methods=['GET', 'POST'])
+def edit_banner(ad_id):
+    app.logger.info(f"Acessando a rota '/edit-banner/{ad_id}' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+
+    banner_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}')
+    
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
+            
+            banner_ref.update({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl
+                # Não atualizamos impressions, clicks ou created_at aqui intencionalmente
+            })
+            app.logger.info(f"Banner ID {ad_id} atualizado no Firebase RTDB.")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Erro ao editar banner ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao salvar as alterações do banner.")
+
+    # GET request
+    try:
+        banner_data = banner_ref.get()
+        if not banner_data:
+            app.logger.warning(f"Tentativa de editar banner com ID {ad_id} não encontrado no Firebase RTDB.")
+            return render_template('error.html', message=f"Banner com ID {ad_id} não encontrado."), 404
+        
+        # Adiciona o ID aos dados para o template, caso ele precise (o template original usa banner.id)
+        banner_data['id'] = ad_id 
+        app.logger.debug(f"Renderizando formulário de edição para o banner: {banner_data}")
+        return render_template('edit_banner.html', banner=banner_data)
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar banner ID {ad_id} para edição: {e}", exc_info=True)
+        return render_template('error.html', message="Erro ao carregar dados do banner para edição."), 500
+
+
+@app.route('/delete-banner/<string:ad_id>', methods=['POST'])
+def delete_banner(ad_id):
+    app.logger.info(f"Acessando a rota POST '/delete-banner/{ad_id}'")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+    try:
+        banner_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}')
+        banner_ref.delete()
+        app.logger.info(f"Banner com ID {ad_id} deletado do Firebase RTDB com sucesso.")
+    except Exception as e:
+        app.logger.error(f"Erro ao deletar banner ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+        return render_template('error.html', message=f"Erro ao deletar banner ID {ad_id}.")
+    return redirect(url_for('dashboard'))
+
+# --- ROTAS PARA FULLSCREEN ADS (similares às de banner) ---
 
 @app.route('/add-fullscreen', methods=['GET', 'POST'])
 def add_fullscreen():
     app.logger.info(f"Acessando a rota '/add-fullscreen' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+
     if request.method == 'POST':
         try:
             title = request.form['title']
@@ -102,132 +235,150 @@ def add_fullscreen():
             targetUrl = request.form['targetUrl']
             app.logger.info(f"Dados recebidos do formulário de tela cheia: Título='{title}', ImageURL='{imageUrl}', TargetURL='{targetUrl}'")
 
-            new_fullscreen_ad = {
-                "id": db["next_fullscreen_id"],
-                "title": title,
-                "imageUrl": imageUrl,
-                "targetUrl": targetUrl,
-                "impressions": 0, # Inicializa com 0
-                "clicks": 0       # Inicializa com 0
-            }
-            db["fullscreen_ads"].append(new_fullscreen_ad)
-            db["next_fullscreen_id"] += 1
-            app.logger.info(f"Novo anúncio de tela cheia adicionado com sucesso: {new_fullscreen_ad}")
-            app.logger.debug(f"Estado atual dos anúncios de tela cheia no DB: {db['fullscreen_ads']}")
+            ads_ref = firebase_rtdb.reference('ads/fullscreen_ads')
+            new_ad_ref = ads_ref.push({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl,
+                'impressions': 0,
+                'clicks': 0,
+                'created_at': firebase_rtdb.SERVER_TIMESTAMP
+            })
+            app.logger.info(f"Novo anúncio de tela cheia adicionado ao Firebase RTDB com ID: {new_ad_ref.key}")
             return redirect(url_for('dashboard'))
         except Exception as e:
-            app.logger.error(f"Erro ao adicionar anúncio de tela cheia: {e}", exc_info=True)
+            app.logger.error(f"Erro ao adicionar anúncio de tela cheia ao Firebase RTDB: {e}", exc_info=True)
             return render_template('error.html', message="Erro ao adicionar o anúncio de tela cheia.")
-
-    # Renderiza 'add_fullscreen.html' que você já possui
     return render_template('add_fullscreen.html')
 
-# --- Rotas de Edição e Deleção (Exemplo Simplificado) ---
-# Você precisará implementar a lógica para encontrar e modificar/remover os itens.
-
-@app.route('/edit-banner/<int:ad_id>', methods=['GET', 'POST'])
-def edit_banner(ad_id):
-    app.logger.info(f"Acessando a rota '/edit-banner/{ad_id}' com o método: {request.method}")
-    banner_to_edit = next((banner for banner in db["banners"] if banner["id"] == ad_id), None)
-
-    if not banner_to_edit:
-        app.logger.warning(f"Tentativa de editar banner com ID {ad_id} não encontrado.")
-        return render_template('error.html', message=f"Banner com ID {ad_id} não encontrado."), 404
-
-    if request.method == 'POST':
-        try:
-            banner_to_edit['title'] = request.form['title']
-            banner_to_edit['imageUrl'] = request.form['imageUrl']
-            banner_to_edit['targetUrl'] = request.form['targetUrl']
-            app.logger.info(f"Banner ID {ad_id} atualizado: {banner_to_edit}")
-            app.logger.debug(f"Estado atual dos banners no DB após edição: {db['banners']}")
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            app.logger.error(f"Erro ao editar banner ID {ad_id}: {e}", exc_info=True)
-            return render_template('error.html', message="Erro ao salvar as alterações do banner.")
-
-    app.logger.debug(f"Renderizando formulário de edição para o banner: {banner_to_edit}")
-    # Renderiza 'edit_banner.html' que você já possui
-    return render_template('edit_banner.html', banner=banner_to_edit)
-
-
-@app.route('/delete-banner/<int:ad_id>', methods=['POST'])
-def delete_banner(ad_id):
-    app.logger.info(f"Acessando a rota POST '/delete-banner/{ad_id}'")
-    initial_len = len(db["banners"])
-    db["banners"] = [banner for banner in db["banners"] if banner["id"] != ad_id]
-    if len(db["banners"]) < initial_len:
-        app.logger.info(f"Banner com ID {ad_id} deletado com sucesso.")
-    else:
-        app.logger.warning(f"Tentativa de deletar banner com ID {ad_id}, mas não foi encontrado.")
-    app.logger.debug(f"Estado atual dos banners no DB após tentativa de deleção: {db['banners']}")
-    return redirect(url_for('dashboard'))
-
-@app.route('/edit-fullscreen/<int:ad_id>', methods=['GET', 'POST'])
+@app.route('/edit-fullscreen/<string:ad_id>', methods=['GET', 'POST'])
 def edit_fullscreen(ad_id):
     app.logger.info(f"Acessando a rota '/edit-fullscreen/{ad_id}' com o método: {request.method}")
-    ad_to_edit = next((ad for ad in db["fullscreen_ads"] if ad["id"] == ad_id), None)
-
-    if not ad_to_edit:
-        app.logger.warning(f"Tentativa de editar anúncio de tela cheia com ID {ad_id} não encontrado.")
-        return render_template('error.html', message=f"Anúncio de tela cheia com ID {ad_id} não encontrado."), 404
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+    
+    ad_ref = firebase_rtdb.reference(f'ads/fullscreen_ads/{ad_id}')
 
     if request.method == 'POST':
         try:
-            ad_to_edit['title'] = request.form['title']
-            ad_to_edit['imageUrl'] = request.form['imageUrl']
-            ad_to_edit['targetUrl'] = request.form['targetUrl']
-            app.logger.info(f"Anúncio de tela cheia ID {ad_id} atualizado: {ad_to_edit}")
-            app.logger.debug(f"Estado atual dos anúncios de tela cheia no DB após edição: {db['fullscreen_ads']}")
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
+            
+            ad_ref.update({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl
+            })
+            app.logger.info(f"Anúncio de tela cheia ID {ad_id} atualizado no Firebase RTDB.")
             return redirect(url_for('dashboard'))
         except Exception as e:
-            app.logger.error(f"Erro ao editar anúncio de tela cheia ID {ad_id}: {e}", exc_info=True)
-            return render_template('error.html', message="Erro ao salvar as alterações do anúncio de tela cheia.")
+            app.logger.error(f"Erro ao editar anúncio de tela cheia ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao salvar as alterações do anúncio.")
 
-    app.logger.debug(f"Renderizando formulário de edição para o anúncio de tela cheia: {ad_to_edit}")
-    # Renderiza 'edit_fullscreen.html' que você já possui
-    return render_template('edit_fullscreen.html', ad=ad_to_edit)
+    # GET request
+    try:
+        ad_data = ad_ref.get()
+        if not ad_data:
+            app.logger.warning(f"Tentativa de editar anúncio de tela cheia com ID {ad_id} não encontrado no Firebase RTDB.")
+            return render_template('error.html', message=f"Anúncio de tela cheia com ID {ad_id} não encontrado."), 404
+        
+        ad_data['id'] = ad_id
+        app.logger.debug(f"Renderizando formulário de edição para o anúncio de tela cheia: {ad_data}")
+        return render_template('edit_fullscreen.html', ad=ad_data) # 'ad' é a variável usada no template edit_fullscreen.html
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar anúncio de tela cheia ID {ad_id} para edição: {e}", exc_info=True)
+        return render_template('error.html', message="Erro ao carregar dados do anúncio para edição."), 500
 
-
-@app.route('/delete-fullscreen/<int:ad_id>', methods=['POST'])
+@app.route('/delete-fullscreen/<string:ad_id>', methods=['POST'])
 def delete_fullscreen(ad_id):
     app.logger.info(f"Acessando a rota POST '/delete-fullscreen/{ad_id}'")
-    initial_len = len(db["fullscreen_ads"])
-    db["fullscreen_ads"] = [ad for ad in db["fullscreen_ads"] if ad["id"] != ad_id]
-    if len(db["fullscreen_ads"]) < initial_len:
-        app.logger.info(f"Anúncio de tela cheia com ID {ad_id} deletado com sucesso.")
-    else:
-        app.logger.warning(f"Tentativa de deletar anúncio de tela cheia com ID {ad_id}, mas não foi encontrado.")
-    app.logger.debug(f"Estado atual dos anúncios de tela cheia no DB após tentativa de deleção: {db['fullscreen_ads']}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha ao conectar com o Firebase."), 500
+    try:
+        ad_ref = firebase_rtdb.reference(f'ads/fullscreen_ads/{ad_id}')
+        ad_ref.delete()
+        app.logger.info(f"Anúncio de tela cheia com ID {ad_id} deletado do Firebase RTDB com sucesso.")
+    except Exception as e:
+        app.logger.error(f"Erro ao deletar anúncio de tela cheia ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+        return render_template('error.html', message=f"Erro ao deletar anúncio de tela cheia ID {ad_id}.")
     return redirect(url_for('dashboard'))
 
 
-# Rota para simular um clique (para fins de teste de CTR, se necessário)
-@app.route('/click/banner/<int:ad_id>')
-def click_banner(ad_id):
-    banner = next((b for b in db["banners"] if b["id"] == ad_id), None)
-    if banner:
-        banner['clicks'] = banner.get('clicks', 0) + 1
-        app.logger.info(f"Clique registrado para banner ID {ad_id}. Total de cliques: {banner['clicks']}")
-        # Idealmente, redirecionaria para banner['targetUrl']
-        return f"Banner {ad_id} clicado! Redirecionando para {banner['targetUrl']} (simulado)"
-    return "Banner não encontrado", 404
+# --- ROTAS PARA API (se o jogo for consumir dados daqui) ---
+# Exemplo:
+# @app.route('/api/get-active-banner', methods=['GET'])
+# def get_active_banner():
+#     if not init_firebase():
+#         return jsonify({"error": "Firebase connection failed"}), 500
+#     try:
+#         # Lógica para buscar um banner ativo do Firebase RTDB
+#         # Ex: banners_ref = firebase_rtdb.reference('ads/banners')
+#         # active_banner = banners_ref.order_by_child('impressions').limit_to_first(1).get() # Exemplo simplista
+#         # ... processar e retornar o banner ...
+#         # Este é apenas um placeholder, a lógica de qual banner é "ativo" precisa ser definida
+        
+#         # Por enquanto, vamos pegar o mais recente como exemplo
+#         banners_ref = firebase_rtdb.reference('ads/banners')
+#         latest_banner_query = banners_ref.order_by_child('created_at').limit_to_last(1)
+#         latest_banner_data = latest_banner_query.get()
 
-@app.route('/impression/banner/<int:ad_id>')
-def impression_banner(ad_id):
-    banner = next((b for b in db["banners"] if b["id"] == ad_id), None)
-    if banner:
-        banner['impressions'] = banner.get('impressions', 0) + 1
-        app.logger.info(f"Impressão registrada para banner ID {ad_id}. Total de impressões: {banner['impressions']}")
-        return f"Impressão para banner {ad_id} registrada!"
-    return "Banner não encontrado", 404
+#         if latest_banner_data:
+#             banner_id = list(latest_banner_data.keys())[0]
+#             active_banner = latest_banner_data[banner_id]
+#             active_banner['id'] = banner_id # Inclui o ID do banner
 
-# Adicione rotas similares para '/click/fullscreen/<int:ad_id>' e '/impression/fullscreen/<int:ad_id>'
+#             # Incrementar impressão aqui
+#             impression_ref = firebase_rtdb.reference(f'ads/banners/{banner_id}/impressions')
+#             impression_ref.transaction(lambda current_value: (current_value or 0) + 1)
+            
+#             return jsonify(active_banner)
+#         else:
+#             return jsonify({"message": "Nenhum banner ativo encontrado"}), 404
+#     except Exception as e:
+#         app.logger.error(f"Erro na API get-active-banner: {e}", exc_info=True)
+#         return jsonify({"error": "Erro ao buscar banner"}), 500
+
+# @app.route('/api/register-click/banner/<string:ad_id>', methods=['POST'])
+# def register_banner_click(ad_id):
+#     if not init_firebase():
+#         return jsonify({"error": "Firebase connection failed"}), 500
+#     try:
+#         click_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}/clicks')
+#         # Usar transação para incrementar o contador de cliques de forma atômica
+#         click_ref.transaction(lambda current_value: (current_value or 0) + 1)
+#         app.logger.info(f"Clique registrado para banner ID {ad_id}")
+#         return jsonify({"success": True, "message": "Clique registrado"})
+#     except Exception as e:
+#         app.logger.error(f"Erro ao registrar clique para banner {ad_id}: {e}", exc_info=True)
+#         return jsonify({"error": "Erro ao registrar clique"}), 500
+
+# Adicione rotas similares para fullscreen ads se necessário
 
 
+# --- INICIALIZAÇÃO DA APLICAÇÃO ---
 if __name__ == '__main__':
-    app.logger.info("Iniciando a aplicação Flask Ad Dashboard.")
-    # Não defina app.debug=True aqui se já estiver usando logging extensivo para DEBUG.
-    # O modo debug do Flask tem seu próprio reloader e debugger.
-    # Para produção, use um servidor WSGI como Gunicorn ou Waitress.
-    app.run(host='0.0.0.0', port=5000)
+    # A inicialização do Firebase é chamada dentro das rotas agora para garantir
+    # que ela ocorra antes de qualquer operação de banco de dados,
+    # e a função init_firebase() em si impede múltiplas inicializações.
+    # Se init_firebase() falhar no início, as rotas retornarão um erro.
+    # Para um deploy em produção com Gunicorn, o Gunicorn lida com o início do app.
+    # A chamada init_firebase() no início de cada rota que usa o DB é uma salvaguarda.
+    
+    # Para desenvolvimento local, garantir que as credenciais estejam acessíveis
+    # (ex: via um arquivo .env carregado com python-dotenv se não estiverem no ambiente)
+    # from dotenv import load_dotenv
+    # load_dotenv() # Carrega variáveis de .env se você usar para desenvolvimento local
+
+    # Apenas para confirmar que a tentativa de init ocorre ao iniciar localmente também:
+    if not init_firebase():
+        app.logger.critical("❌ Aplicação pode não funcionar corretamente: Falha na inicialização do Firebase no startup.")
+    
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+else:
+    # Isso é relevante quando o Gunicorn importa 'app' no Render
+    # Força uma tentativa de inicialização quando o módulo é carregado pelo Gunicorn
+    if not init_firebase():
+        # Isso pode não impedir o Gunicorn de tentar rodar, mas logará o erro.
+        # O tratamento de erro em cada rota é a defesa principal.
+        logging.getLogger().critical("❌ (Gunicorn Load) Aplicação pode não funcionar corretamente: Falha na inicialização do Firebase.")
