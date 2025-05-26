@@ -268,18 +268,18 @@
 
         // Dados para os gráficos
         const bannerData = {
-            labels: [{% for ad in metrics.banner.ads %}'{{ ad.title | e('js') }}',{% endfor %}], // Adicionado filtro e('js') por segurança
+            labels: {{ metrics.banner.ads | map(attribute='title') | list | tojson | safe }},
             datasets: [
                 {
                     label: 'Impressões',
-                    data: [{% for ad in metrics.banner.ads %}{{ ad.impressions }},{% endfor %}],
+                    data: {{ metrics.banner.ads | map(attribute='impressions') | list | tojson | safe }},
                     backgroundColor: 'rgba(54, 162, 235, 0.5)',
                     borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Cliques',
-                    data: [{% for ad in metrics.banner.ads %}{{ ad.clicks }},{% endfor %}],
+                    data: {{ metrics.banner.ads | map(attribute='clicks') | list | tojson | safe }},
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                     borderColor: 'rgba(255, 99, 132, 1)',
                     borderWidth: 1
@@ -288,18 +288,18 @@
         };
 
         const fullscreenData = {
-            labels: [{% for ad in metrics.fullscreen.ads %}'{{ ad.title | e('js') }}',{% endfor %}], // Adicionado filtro e('js') por segurança
+            labels: {{ metrics.fullscreen.ads | map(attribute='title') | list | tojson | safe }},
             datasets: [
                 {
                     label: 'Impressões',
-                    data: [{% for ad in metrics.fullscreen.ads %}{{ ad.impressions }},{% endfor %}],
+                    data: {{ metrics.fullscreen.ads | map(attribute='impressions') | list | tojson | safe }},
                     backgroundColor: 'rgba(54, 162, 235, 0.5)',
                     borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Cliques',
-                    data: [{% for ad in metrics.fullscreen.ads %}{{ ad.clicks }},{% endfor %}],
+                    data: {{ metrics.fullscreen.ads | map(attribute='clicks') | list | tojson | safe }},
                     backgroundColor: 'rgba(255, 99, 132, 0.5)',
                     borderColor: 'rgba(255, 99, 132, 1)',
                     borderWidth: 1
@@ -308,6 +308,7 @@
         };
 
         // DIAGNÓSTICO JAVASCRIPT: Verifique os dados que estão sendo preparados para os gráficos.
+        // Usando JSON.parse(JSON.stringify()) para uma cópia profunda e evitar problemas com proxies/objetos complexos no console.
         console.log("DEBUG: Dados para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
         console.log("DEBUG: Dados para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
 
