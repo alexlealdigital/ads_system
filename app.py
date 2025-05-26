@@ -322,6 +322,40 @@ def record_click():
 # Rotas do dashboard
 @app.route('/')
 def dashboard():
+    # Dentro da rota dashboard() em app.py
+try:
+    banner_stats = ad_model.get_banner_stats()
+    fullscreen_stats = ad_model.get_fullscreen_stats()
+    logger.info(f"DEBUG RENDER: Banner Stats para o dashboard: {banner_stats}")
+    logger.info(f"DEBUG RENDER: Fullscreen Stats para o dashboard: {fullscreen_stats}")
+
+    # ... (cálculos de métricas existentes) ...
+    total_banner_impressions = sum(b.get('impressions', 0) for b in banner_stats) # Certifique-se que banner_stats é iterável
+    total_banner_clicks = sum(b.get('clicks', 0) for b in banner_stats)
+    # ... (resto dos cálculos) ...
+
+    metrics = {
+        'banner': {
+            'ads_count': len(banner_stats),
+            'total_impressions': total_banner_impressions,
+            'total_clicks': total_banner_clicks,
+            'ctr': banner_ctr, # Certifique-se que banner_ctr está definido
+            'ads': banner_stats
+        },
+        'fullscreen': {
+            'ads_count': len(fullscreen_stats),
+            'total_impressions': total_fullscreen_impressions, # Certifique-se que fullscreen_stats é iterável
+            'total_clicks': total_fullscreen_clicks,
+            'ctr': fullscreen_ctr, # Certifique-se que fullscreen_ctr está definido
+            'ads': fullscreen_stats
+        }
+    }
+    logger.info(f"DEBUG RENDER: Métricas enviadas para o template: {metrics}")
+    return render_template('dashboard.html', metrics=metrics)
+except Exception as e:
+    logger.error(f"Erro ao renderizar dashboard: {str(e)}")
+    logger.exception("DEBUG RENDER: Exception details in dashboard route:") # Log completo da exceção
+    return render_template('error.html', error=str(e))
     """
     Página principal do dashboard.
     """
