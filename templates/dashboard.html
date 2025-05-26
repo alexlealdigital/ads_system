@@ -118,7 +118,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="col-md-6 mb-4">
                 <div class="card metric-card fullscreen-bg h-100">
                     <div class="card-body">
@@ -155,7 +154,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="col-md-6 mb-4">
                 <div class="card metric-card h-100">
                     <div class="card-body">
@@ -181,9 +179,11 @@
                             </a>
                         </div>
                         
-                        <!-- Lista simplificada de banners com botões de editar e deletar -->
+                        <p>DEBUG: Iniciando lista de banners. Número de ads: {{ metrics.banner.ads|length }}</p>
+                        
                         <div class="list-group">
                             {% for ad in metrics.banner.ads %}
+                            <p>DEBUG: Renderizando banner ID {{ ad.id }}, Título: {{ ad.title }}</p>
                             <div class="ad-list-item">
                                 <div>
                                     <strong>{{ loop.index }}.</strong> {{ ad.title }}
@@ -202,11 +202,13 @@
                             {% endfor %}
                             
                             {% if metrics.banner.ads|length == 0 %}
+                            <p>DEBUG: A lista de banners está vazia (metrics.banner.ads|length == 0).</p>
                             <div class="text-center py-3">
                                 <p class="text-muted">Nenhum banner cadastrado.</p>
                             </div>
                             {% endif %}
                         </div>
+                        <p>DEBUG: Fim da lista de banners.</p>
                     </div>
                 </div>
             </div>
@@ -223,9 +225,11 @@
                             </a>
                         </div>
                         
-                        <!-- Lista simplificada de anúncios de tela cheia com botões de editar e deletar -->
+                        <p>DEBUG: Iniciando lista de anúncios de tela cheia. Número de ads: {{ metrics.fullscreen.ads|length }}</p>
+
                         <div class="list-group">
                             {% for ad in metrics.fullscreen.ads %}
+                            <p>DEBUG: Renderizando anúncio tela cheia ID {{ ad.id }}, Título: {{ ad.title }}</p>
                             <div class="ad-list-item">
                                 <div>
                                     <strong>{{ loop.index }}.</strong> {{ ad.title }}
@@ -244,11 +248,13 @@
                             {% endfor %}
                             
                             {% if metrics.fullscreen.ads|length == 0 %}
+                            <p>DEBUG: A lista de anúncios de tela cheia está vazia (metrics.fullscreen.ads|length == 0).</p>
                             <div class="text-center py-3">
                                 <p class="text-muted">Nenhum anúncio de tela cheia cadastrado.</p>
                             </div>
                             {% endif %}
                         </div>
+                        <p>DEBUG: Fim da lista de anúncios de tela cheia.</p>
                     </div>
                 </div>
             </div>
@@ -257,9 +263,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // DIAGNÓSTICO JAVASCRIPT: Log para verificar se o script principal está sendo executado.
+        console.log("DEBUG: Script principal do dashboard.html iniciado.");
+
         // Dados para os gráficos
         const bannerData = {
-            labels: [{% for ad in metrics.banner.ads %}'{{ ad.title }}',{% endfor %}],
+            labels: [{% for ad in metrics.banner.ads %}'{{ ad.title | e('js') }}',{% endfor %}], // Adicionado filtro e('js') por segurança
             datasets: [
                 {
                     label: 'Impressões',
@@ -279,7 +288,7 @@
         };
 
         const fullscreenData = {
-            labels: [{% for ad in metrics.fullscreen.ads %}'{{ ad.title }}',{% endfor %}],
+            labels: [{% for ad in metrics.fullscreen.ads %}'{{ ad.title | e('js') }}',{% endfor %}], // Adicionado filtro e('js') por segurança
             datasets: [
                 {
                     label: 'Impressões',
@@ -298,6 +307,11 @@
             ]
         };
 
+        // DIAGNÓSTICO JAVASCRIPT: Verifique os dados que estão sendo preparados para os gráficos.
+        console.log("DEBUG: Dados para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
+        console.log("DEBUG: Dados para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
+
+
         // Configuração dos gráficos
         const chartConfig = {
             type: 'bar',
@@ -314,18 +328,37 @@
 
         // Inicializar gráficos
         window.addEventListener('load', function() {
-            const bannerCtx = document.getElementById('bannerChart').getContext('2d');
-            const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
+            // DIAGNÓSTICO JAVASCRIPT: Log para verificar se o evento 'load' foi disparado.
+            console.log("DEBUG: Evento window.load disparado. Inicializando gráficos.");
             
-            new Chart(bannerCtx, {
-                ...chartConfig,
-                data: bannerData
-            });
-            
-            new Chart(fullscreenCtx, {
-                ...chartConfig,
-                data: fullscreenData
-            });
+            try {
+                const bannerCtx = document.getElementById('bannerChart').getContext('2d');
+                const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
+                
+                if (bannerCtx) {
+                    // DIAGNÓSTICO JAVASCRIPT: Log antes de criar o gráfico de banner.
+                    console.log("DEBUG: Contexto do gráfico de banner (bannerCtx) encontrado. Criando gráfico.");
+                    new Chart(bannerCtx, {
+                        ...chartConfig,
+                        data: bannerData
+                    });
+                } else {
+                    console.error("DEBUG_ERROR: Elemento canvas 'bannerChart' não encontrado!");
+                }
+                
+                if (fullscreenCtx) {
+                    // DIAGNÓSTICO JAVASCRIPT: Log antes de criar o gráfico de tela cheia.
+                    console.log("DEBUG: Contexto do gráfico de tela cheia (fullscreenCtx) encontrado. Criando gráfico.");
+                    new Chart(fullscreenCtx, {
+                        ...chartConfig,
+                        data: fullscreenData
+                    });
+                } else {
+                    console.error("DEBUG_ERROR: Elemento canvas 'fullscreenChart' não encontrado!");
+                }
+            } catch (error) {
+                console.error("DEBUG_ERROR: Erro ao inicializar os gráficos:", error);
+            }
         });
     </script>
 </body>
