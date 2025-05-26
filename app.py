@@ -27,7 +27,7 @@ FIREBASE_CREDENTIALS = {
     "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT")
 }
 
-FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
+FIREBASE_DB_URL = os.getenv("FIREBASE_DATABASE_URL")
 
 # --- INICIALIZAÇÃO FIREBASE ---
 def init_firebase():
