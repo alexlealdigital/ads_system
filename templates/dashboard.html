@@ -7,6 +7,34 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
     <style>
+        .ad-list-item-wrapper {
+    border: 2px dashed blue;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #fff;
+    overflow: visible !important; /* Adicionado para teste */
+    min-height: 60px; /* Adicionado para teste */
+}
+
+.ad-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px; /* Já tem algo similar */
+    border-bottom: 1px solid #eee;
+    height: auto !important; /* ADICIONADO PARA TESTE */
+    background-color: lightgreen !important; /* Adicione uma cor de fundo para ver se o elemento aparece */
+    /* Adicione também: */
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.ad-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0; /* Adicionado para teste */
+    background-color: lightpink !important; /* Cor de fundo para debug */
+}
         body { background-color: #f8f9fa; }
         .metric-card {
             border-radius: 10px;
