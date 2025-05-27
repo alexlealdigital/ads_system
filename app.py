@@ -1,501 +1,359 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Anúncios</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
-    <style>
-        body { 
-            background-color: #f8f9fa; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .metric-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s;
-        }
-        
-        .metric-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .banner-bg { 
-            background-color: #e3f2fd; 
-        }
-        
-        .fullscreen-bg { 
-            background-color: #f0e6ff; 
-        }
-        
-        .chart-container { 
-            height: 300px; 
-            margin-bottom: 20px; 
-            background-color: #fff; 
-            padding: 15px;
-            border-radius: 5px;
-        }
+import firebase_admin
+from firebase_admin import credentials, db as firebase_rtdb
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+import os
+import logging
+from flask_cors import CORS
 
-        .ad-list-item-wrapper {
-            border: 3px solid red !important;
-            margin-bottom: 15px;
-            padding: 12px;
-            background-color: yellow !important;
-            overflow: visible !important;
-            min-height: 60px;
-            position: relative !important;
-            z-index: 1000 !important;
-        }
-        
-        .ad-list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 15px;
-            border: 2px dashed green !important;
-            background-color: cyan !important;
-            font-size: 16px !important;
-            color: black !important;
-        }
-        
-        .ad-list-item:last-child { 
-            border-bottom: none; 
-        }
-        
-        .ad-actions { 
-            display: flex; 
-            gap: 10px;
-            flex-shrink: 0;
-            border: 2px dotted purple !important;
-            background-color: magenta !important;
-        }
-        
-        .btn-edit {
-            background-color: white !important; 
-            color: black !important; 
-            border-radius: 50%;
-            width: 36px; 
-            height: 36px; 
-            padding: 0; 
-            display: inline-flex;
-            align-items: center; 
-            justify-content: center;
-            border: 1px solid black !important;
-            font-size: 20px !important;
-        }
-        
-        .btn-delete {
-            background-color: white !important;
-            color: black !important;
-            border-radius: 50%;
-            width: 36px; 
-            height: 36px; 
-            padding: 0; 
-            display: inline-flex;
-            align-items: center; 
-            justify-content: center;
-            border: 1px solid black !important;
-            font-size: 20px !important;
-        }
-        
-        .debug-marker { 
-            background-color: #fff0b3; 
-            color: #333; 
-            padding: 8px; 
-            margin: 8px 0; 
-            border: 1px solid #ffc107; 
-            font-size: 0.9em; 
-            border-radius: 4px;
-        }
-        
-        @media (max-width: 768px) {
-            .ad-list-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
+# --- CONFIGURAÇÃO INICIAL DA APLICAÇÃO E LOGGING ---
+app = Flask(__name__)
+app.logger.setLevel(logging.INFO) # Use logging.DEBUG para mais detalhes
+
+# --- CONFIGURAÇÃO CORS ---
+CORS(app, resources={r"/*": {"origins": "*"}}) # Ajuste para produção se necessário
+
+# --- CONFIGURAÇÃO FIREBASE ---
+# Caminho para o Secret File no Render.
+# O SDK do Firebase Admin procura GOOGLE_APPLICATION_CREDENTIALS por padrão.
+# Se você nomeou seu Secret File como 'firebase_credentials.json', o caminho será /etc/secrets/firebase_credentials.json
+FIREBASE_CRED_FILE_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "/etc/secrets/firebase_credentials.json")
+FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
+
+firebase_initialized_successfully = False
+
+def init_firebase():
+    global firebase_initialized_successfully
+    if firebase_initialized_successfully:
+        return True
+
+    if not FIREBASE_DB_URL:
+        app.logger.error("🔥 ERRO Firebase: FIREBASE_DB_URL não configurada nas variáveis de ambiente.")
+        firebase_initialized_successfully = False
+        return False
+    
+    if not os.path.exists(FIREBASE_CRED_FILE_PATH):
+        app.logger.error(f"🔥 ERRO Firebase: Arquivo de credenciais não encontrado em {FIREBASE_CRED_FILE_PATH}.")
+        firebase_initialized_successfully = False
+        return False
+
+    if not firebase_admin._apps:
+        try:
+            cred = credentials.Certificate(FIREBASE_CRED_FILE_PATH)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': FIREBASE_DB_URL
+            })
+            app.logger.info("✅ Firebase Admin SDK inicializado com sucesso usando Secret File!")
+            firebase_initialized_successfully = True
+            return True
+        except Exception as e:
+            app.logger.error(f"🔥 ERRO Firebase ao inicializar com Secret File: {str(e)}", exc_info=True)
+            firebase_initialized_successfully = False
+            return False
+    else:
+        app.logger.info("✅ Firebase Admin SDK já estava inicializado (app default existente).")
+        firebase_initialized_successfully = True 
+        return True
+
+def calculate_ctr(clicks, impressions):
+    if impressions == 0:
+        return 0.0
+    return round((clicks / impressions) * 100, 2)
+
+# --- ROTAS DO DASHBOARD DE ANÚNCIOS ---
+
+@app.route('/')
+def dashboard():
+    app.logger.info("Acessando a rota do Dashboard ('/')")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase. Verifique os logs do servidor."), 500
+
+    banner_ads_list = []
+    fullscreen_ads_list = []
+    try:
+        banners_ref = firebase_rtdb.reference('ads/banners')
+        all_banners_data = banners_ref.order_by_child('created_at').get()
+        if all_banners_data:
+            for ad_id, ad_data_item in all_banners_data.items():
+                if isinstance(ad_data_item, dict):
+                    ad_data_item['id'] = ad_id
+                    banner_ads_list.append(ad_data_item)
+            banner_ads_list.reverse()
+        app.logger.debug(f"Banners carregados do Firebase: {len(banner_ads_list)} itens.")
+
+        fullscreen_ref = firebase_rtdb.reference('ads/fullscreen_ads')
+        all_fullscreen_data = fullscreen_ref.order_by_child('created_at').get()
+        if all_fullscreen_data:
+            for ad_id, ad_data_item in all_fullscreen_data.items():
+                if isinstance(ad_data_item, dict):
+                    ad_data_item['id'] = ad_id
+                    fullscreen_ads_list.append(ad_data_item)
+            fullscreen_ads_list.reverse()
+        app.logger.debug(f"Anúncios de tela cheia carregados do Firebase: {len(fullscreen_ads_list)} itens.")
+
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar dados do Firebase para o dashboard: {e}", exc_info=True)
+        # Não retorna erro aqui, apenas loga, para que o dashboard ainda possa ser renderizado (vazio)
+
+    total_banner_impressions = sum(ad.get('impressions', 0) for ad in banner_ads_list)
+    total_banner_clicks = sum(ad.get('clicks', 0) for ad in banner_ads_list)
+    banner_ctr = calculate_ctr(total_banner_clicks, total_banner_impressions)
+
+    metrics_banner = {
+        "ads_count": len(banner_ads_list),
+        "total_impressions": total_banner_impressions,
+        "ctr": banner_ctr,
+        "ads": banner_ads_list
+    }
+
+    total_fullscreen_impressions = sum(ad.get('impressions', 0) for ad in fullscreen_ads_list)
+    total_fullscreen_clicks = sum(ad.get('clicks', 0) for ad in fullscreen_ads_list)
+    fullscreen_ctr = calculate_ctr(total_fullscreen_clicks, total_fullscreen_impressions)
+
+    metrics_fullscreen = {
+        "ads_count": len(fullscreen_ads_list),
+        "total_impressions": total_fullscreen_impressions,
+        "ctr": fullscreen_ctr,
+        "ads": fullscreen_ads_list
+    }
+
+    metrics_data = {
+        "banner": metrics_banner,
+        "fullscreen": metrics_fullscreen
+    }
+    app.logger.info(f"Dados finais enviados para o template dashboard.html: {len(banner_ads_list)} banners, {len(fullscreen_ads_list)} fullscreen.")
+    return render_template('dashboard.html', metrics=metrics_data)
+
+@app.route('/add-banner', methods=['GET', 'POST'])
+def add_banner():
+    app.logger.info(f"Acessando a rota '/add-banner' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
+            app.logger.info(f"Formulário de banner recebido: Título='{title}'")
+
+            ads_ref = firebase_rtdb.reference('ads/banners')
+            new_ad_ref = ads_ref.push({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl,
+                'impressions': 0,
+                'clicks': 0,
+                'created_at': {".sv": "timestamp"} # CORREÇÃO APLICADA
+            })
+            app.logger.info(f"Novo banner adicionado ao Firebase RTDB com ID: {new_ad_ref.key}")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Erro ao adicionar banner ao Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao adicionar o banner.")
+    return render_template('add_banner.html')
+
+@app.route('/edit-banner/<string:ad_id>', methods=['GET', 'POST'])
+def edit_banner(ad_id):
+    app.logger.info(f"Acessando a rota '/edit-banner/{ad_id}' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+
+    banner_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}')
+    
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
             
-            .ad-actions {
-                align-self: flex-end;
-            }
+            banner_ref.update({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl
+            })
+            app.logger.info(f"Banner ID {ad_id} atualizado no Firebase RTDB.")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Erro ao editar banner ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao salvar as alterações do banner.")
+
+    # GET request
+    try:
+        banner_data = banner_ref.get()
+        if not banner_data or not isinstance(banner_data, dict):
+            app.logger.warning(f"Banner com ID {ad_id} não encontrado ou dados inválidos no Firebase RTDB.")
+            return render_template('error.html', message=f"Banner com ID {ad_id} não encontrado."), 404
+        
+        banner_data['id'] = ad_id 
+        app.logger.debug(f"Renderizando formulário de edição para o banner: {banner_data.get('title')}")
+        return render_template('edit_banner.html', banner=banner_data)
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar banner ID {ad_id} para edição: {e}", exc_info=True)
+        return render_template('error.html', message="Erro ao carregar dados do banner para edição."), 500
+
+@app.route('/delete-banner/<string:ad_id>', methods=['POST'])
+def delete_banner(ad_id):
+    app.logger.info(f"Acessando a rota POST '/delete-banner/{ad_id}'")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+    try:
+        banner_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}')
+        banner_ref.delete()
+        app.logger.info(f"Banner com ID {ad_id} deletado do Firebase RTDB com sucesso.")
+    except Exception as e:
+        app.logger.error(f"Erro ao deletar banner ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+        return render_template('error.html', message=f"Erro ao deletar banner ID {ad_id}.")
+    return redirect(url_for('dashboard'))
+
+@app.route('/add-fullscreen', methods=['GET', 'POST'])
+def add_fullscreen():
+    app.logger.info(f"Acessando a rota '/add-fullscreen' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
+            app.logger.info(f"Formulário de tela cheia recebido: Título='{title}'")
+
+            ads_ref = firebase_rtdb.reference('ads/fullscreen_ads')
+            new_ad_ref = ads_ref.push({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl,
+                'impressions': 0,
+                'clicks': 0,
+                'created_at': {".sv": "timestamp"} # CORREÇÃO APLICADA
+            })
+            app.logger.info(f"Novo anúncio de tela cheia adicionado ao Firebase RTDB com ID: {new_ad_ref.key}")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Erro ao adicionar anúncio de tela cheia ao Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao adicionar o anúncio de tela cheia.")
+    return render_template('add_fullscreen.html')
+
+@app.route('/edit-fullscreen/<string:ad_id>', methods=['GET', 'POST'])
+def edit_fullscreen(ad_id):
+    app.logger.info(f"Acessando a rota '/edit-fullscreen/{ad_id}' com o método: {request.method}")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+    
+    ad_ref = firebase_rtdb.reference(f'ads/fullscreen_ads/{ad_id}')
+
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            imageUrl = request.form['imageUrl']
+            targetUrl = request.form['targetUrl']
             
-            .chart-container {
-                height: 250px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">Dashboard de Anúncios</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/add-banner">
-                            <i class="bi bi-plus-circle me-1"></i>Adicionar Banner
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/add-fullscreen">
-                            <i class="bi bi-fullscreen me-1"></i>Anúncio Tela Cheia
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+            ad_ref.update({
+                'title': title,
+                'imageUrl': imageUrl,
+                'targetUrl': targetUrl
+            })
+            app.logger.info(f"Anúncio de tela cheia ID {ad_id} atualizado no Firebase RTDB.")
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Erro ao editar anúncio de tela cheia ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+            return render_template('error.html', message="Erro ao salvar as alterações do anúncio.")
 
-    <div class="container py-4">
-        <div class="row mb-4">
-            <div class="col-12">
-                <h1 class="display-5 mb-3">Métricas de Desempenho</h1>
-                <p class="lead text-muted">Visualize o desempenho dos seus anúncios em tempo real</p>
-            </div>
-        </div>
+    # GET request
+    try:
+        ad_data = ad_ref.get()
+        if not ad_data or not isinstance(ad_data, dict):
+            app.logger.warning(f"Anúncio de tela cheia com ID {ad_id} não encontrado ou dados inválidos no Firebase RTDB.")
+            return render_template('error.html', message=f"Anúncio de tela cheia com ID {ad_id} não encontrado."), 404
+        
+        ad_data['id'] = ad_id
+        app.logger.debug(f"Renderizando formulário de edição para o anúncio de tela cheia: {ad_data.get('title')}")
+        return render_template('edit_fullscreen.html', ad=ad_data)
+    except Exception as e:
+        app.logger.error(f"Erro ao buscar anúncio de tela cheia ID {ad_id} para edição: {e}", exc_info=True)
+        return render_template('error.html', message="Erro ao carregar dados do anúncio para edição."), 500
 
-        <div class="row mb-4">
-            <div class="col-md-6 mb-4">
-                <div class="card metric-card banner-bg h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">
-                            <i class="bi bi-image me-2"></i>Banners (360×47px)
-                        </h5>
-                        <div class="row mt-4">
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.ads_count }}</h3>
-                                <p class="text-muted">Total de Anúncios</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.total_impressions }}</h3>
-                                <p class="text-muted">Impressões</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.banner.ctr }}%</h3>
-                                <p class="text-muted">Taxa de Cliques</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+@app.route('/delete-fullscreen/<string:ad_id>', methods=['POST'])
+def delete_fullscreen(ad_id):
+    app.logger.info(f"Acessando a rota POST '/delete-fullscreen/{ad_id}'")
+    if not init_firebase():
+        return render_template('error.html', message="Falha crítica ao conectar com o Firebase."), 500
+    try:
+        ad_ref = firebase_rtdb.reference(f'ads/fullscreen_ads/{ad_id}')
+        ad_ref.delete()
+        app.logger.info(f"Anúncio de tela cheia com ID {ad_id} deletado do Firebase RTDB com sucesso.")
+    except Exception as e:
+        app.logger.error(f"Erro ao deletar anúncio de tela cheia ID {ad_id} no Firebase RTDB: {e}", exc_info=True)
+        return render_template('error.html', message=f"Erro ao deletar anúncio de tela cheia ID {ad_id}.")
+    return redirect(url_for('dashboard'))
 
-            <div class="col-md-6 mb-4">
-                <div class="card metric-card fullscreen-bg h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">
-                            <i class="bi bi-phone me-2"></i>Tela Cheia (360×640px)
-                        </h5>
-                        <div class="row mt-4">
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.ads_count }}</h3>
-                                <p class="text-muted">Total de Anúncios</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.total_impressions }}</h3>
-                                <p class="text-muted">Impressões</p>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <h3>{{ metrics.fullscreen.ctr }}%</h3>
-                                <p class="text-muted">Taxa de Cliques</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mb-4">
-            <div class="col-md-6 mb-4">
-                <div class="card metric-card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3">
-                            <i class="bi bi-bar-chart-line me-2"></i>Desempenho de Banners
-                        </h5>
-                        <div class="chart-container">
-                            <canvas id="bannerChart" aria-label="Gráfico de desempenho de banners" role="img"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6 mb-4">
-                <div class="card metric-card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3">
-                            <i class="bi bi-bar-chart-line me-2"></i>Desempenho de Anúncios Tela Cheia
-                        </h5>
-                        <div class="chart-container">
-                            <canvas id="fullscreenChart" aria-label="Gráfico de desempenho de anúncios de tela cheia" role="img"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12 mb-4">
-                <div class="card metric-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="card-title">
-                                <i class="bi bi-image me-2"></i>Detalhes dos Banners
-                            </h5>
-                            <a href="/add-banner" class="btn btn-primary btn-sm">
-                                <i class="bi bi-plus-circle me-1"></i>Adicionar Banner
-                            </a>
-                        </div>
-                        
-                        <div class="debug-marker">DEBUG HTML: Iniciando lista de banners. Número de ads: {{ metrics.banner.ads|length }}</div>
-                        <div class="debug-marker">DEBUG HTML: metrics.banner.ads existe? {% if metrics.banner.ads is defined %}SIM{% else %}NÃO{% endif %}</div>
-                        <div class="debug-marker">DEBUG HTML: metrics.banner.ads é uma lista? {% if metrics.banner.ads is iterable and metrics.banner.ads is not string and metrics.banner.ads is not mapping %}SIM{% else %}NÃO{% endif %}</div>
-                        
-                        <div class="list-group">
-                            {% if metrics.banner.ads and metrics.banner.ads|length > 0 %}
-                                {% for ad in metrics.banner.ads %}
-                                <div class="debug-marker" style="margin-left: 20px;">
-                                    DEBUG HTML (dentro do loop banner): ID {{ ad.id if ad.id is defined else 'N/A' }}, Título: {{ ad.title if ad.title is defined else 'N/A' }}
-                                </div>
-                                <div class="ad-list-item-wrapper">
-                                    <div class="ad-list-item">
-                                        <div>
-                                            <strong>{{ loop.index }}.</strong> {{ ad.title }}
-                                        </div>
-                                        <div class="ad-actions">
-                                            <a href="/edit-banner/{{ ad.id }}" class="btn btn-edit" aria-label="Editar anúncio {{ ad.title }}">
-                                                <i class="bi bi-pencil-fill"></i>
-                                            </a>
-                                            <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este banner?');">
-                                                <button type="submit" class="btn btn-delete" aria-label="Deletar anúncio {{ ad.title }}">
-                                                    <i class="bi bi-trash-fill"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <div class="debug-marker">DEBUG HTML: A lista de banners está vazia ou não é uma lista iterável.</div>
-                                <div class="text-center py-3">
-                                    <p class="text-muted">Nenhum banner cadastrado.</p>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="debug-marker">DEBUG HTML: Fim da lista de banners.</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 mb-4">
-                <div class="card metric-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="card-title">
-                                <i class="bi bi-phone me-2"></i>Detalhes dos Anúncios Tela Cheia
-                            </h5>
-                            <a href="/add-fullscreen" class="btn btn-primary btn-sm">
-                                <i class="bi bi-plus-circle me-1"></i>Adicionar Anúncio
-                            </a>
-                        </div>
-                        
-                        <div class="debug-marker">DEBUG HTML: Iniciando lista de anúncios de tela cheia. Número de ads: {{ metrics.fullscreen.ads|length }}</div>
-                        <div class="debug-marker">DEBUG HTML: metrics.fullscreen.ads existe? {% if metrics.fullscreen.ads is defined %}SIM{% else %}NÃO{% endif %}</div>
-                        <div class="debug-marker">DEBUG HTML: metrics.fullscreen.ads é uma lista? {% if metrics.fullscreen.ads is iterable and metrics.fullscreen.ads is not string and metrics.fullscreen.ads is not mapping %}SIM{% else %}NÃO{% endif %}</div>
-
-                        <div class="list-group">
-                           {% if metrics.fullscreen.ads and metrics.fullscreen.ads|length > 0 %}
-                                {% for ad in metrics.fullscreen.ads %}
-                                <div class="debug-marker" style="margin-left: 20px;">
-                                    DEBUG HTML (dentro do loop fullscreen): ID {{ ad.id if ad.id is defined else 'N/A' }}, Título: {{ ad.title if ad.title is defined else 'N/A' }}
-                                </div>
-                                <div class="ad-list-item-wrapper">
-                                    <div class="ad-list-item">
-                                        <div>
-                                            <strong>{{ loop.index }}.</strong> {{ ad.title }}
-                                        </div>
-                                        <div class="ad-actions">
-                                            <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-edit" aria-label="Editar anúncio {{ ad.title }}">
-                                                <i class="bi bi-pencil-fill"></i>
-                                            </a>
-                                            <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este anúncio?');">
-                                                <button type="submit" class="btn btn-delete" aria-label="Deletar anúncio {{ ad.title }}">
-                                                    <i class="bi bi-trash-fill"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <div class="debug-marker">DEBUG HTML: A lista de anúncios de tela cheia está vazia ou não é uma lista iterável.</div>
-                                <div class="text-center py-3">
-                                    <p class="text-muted">Nenhum anúncio de tela cheia cadastrado.</p>
-                                </div>
-                            {% endif %}
-                        </div>
-                         <div class="debug-marker">DEBUG HTML: Fim da lista de anúncios de tela cheia.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        console.log("--- DEBUG JS: Script principal do dashboard.html iniciado ---");
-
-        function getSafeArray(dataFromJinja) {
-            if (Array.isArray(dataFromJinja)) {
-                return dataFromJinja;
-            }
-            if (typeof dataFromJinja === 'string') {
-                try {
-                    const parsed = JSON.parse(dataFromJinja);
-                    return Array.isArray(parsed) ? parsed : [];
-                } catch (e) {
-                    console.warn("DEBUG JS: Falha ao fazer parse de dataFromJinja como JSON (getSafeArray), retornando array vazio. Data:", dataFromJinja, "Erro:", e);
-                    return [];
-                }
-            }
-            console.warn("DEBUG JS: dataFromJinja não é array nem string JSON (getSafeArray), retornando array vazio. Data:", dataFromJinja);
-            return [];
-        }
-
-        function getAttributeFromArray(arr, attribute, defaultValueArg) {
-            const defaultValue = defaultValueArg !== undefined ? defaultValueArg : (attribute === 'title' ? 'Título N/A' : 0);
-            if (!Array.isArray(arr)) {
-                 console.warn(`DEBUG JS: Input para getAttributeFromArray (atributo '${attribute}') não é um array. Recebido:`, arr);
-                return [];
-            }
-            return arr.map(item => (item && typeof item === 'object' && item[attribute] !== undefined) ? item[attribute] : defaultValue);
-        }
-
-        const rawBannerAds = {{ metrics.banner.ads | default([]) | tojson | safe }};
-        const rawFullscreenAds = {{ metrics.fullscreen.ads | default([]) | tojson | safe }};
-
-        console.log("DEBUG JS: rawBannerAds (do Jinja):", typeof rawBannerAds, JSON.parse(JSON.stringify(rawBannerAds)));
-        console.log("DEBUG JS: rawFullscreenAds (do Jinja):", typeof rawFullscreenAds, JSON.parse(JSON.stringify(rawFullscreenAds)));
-
-        const bannerAds = getSafeArray(rawBannerAds);
-        const fullscreenAds = getSafeArray(rawFullscreenAds);
-
-        console.log("DEBUG JS: bannerAds (após getSafeArray):", JSON.parse(JSON.stringify(bannerAds)));
-        console.log("DEBUG JS: fullscreenAds (após getSafeArray):", JSON.parse(JSON.stringify(fullscreenAds)));
-
-        const bannerData = {
-            labels: getAttributeFromArray(bannerAds, 'title'),
-            datasets: [
-                {
-                    label: 'Impressões',
-                    data: getAttributeFromArray(bannerAds, 'impressions'),
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Cliques',
-                    data: getAttributeFromArray(bannerAds, 'clicks'),
-                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }
+# --- ROTAS DE API PARA O JOGO UNITY (Exemplos) ---
+@app.route('/api/get-banner', methods=['GET'])
+def api_get_banner():
+    if not init_firebase():
+        return jsonify({"error": "Firebase connection failed", "message": "Não foi possível conectar ao servidor de dados."}), 500
+    
+    try:
+        banners_ref = firebase_rtdb.reference('ads/banners')
+        all_banners = banners_ref.order_by_child('created_at').get()
+        
+        active_banner_data = None
+        if all_banners:
+            # Itera de forma reversa (já que o get ordenou por created_at ascendente) para pegar os mais recentes primeiro
+            # Ou, se a lista for grande, buscar com limit_to_last(N) e escolher
+            valid_banners = [
+                {**data, 'id': id_} for id_, data in all_banners.items() 
+                if isinstance(data, dict) and data.get('imageUrl') and data.get('targetUrl')
             ]
-        };
-
-        const fullscreenData = {
-            labels: getAttributeFromArray(fullscreenAds, 'title'),
-            datasets: [
-                {
-                    label: 'Impressões',
-                    data: getAttributeFromArray(fullscreenAds, 'impressions'),
-                    backgroundColor: 'rgba(153, 102, 255, 0.7)',
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Cliques',
-                    data: getAttributeFromArray(fullscreenAds, 'clicks'),
-                    backgroundColor: 'rgba(255, 159, 64, 0.7)',
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    borderWidth: 1
-                }
-            ]
-        };
-
-        console.log("DEBUG JS: Dados FINAIS para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
-        console.log("DEBUG JS: Dados FINAIS para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
-
-        const chartConfig = {
-            type: 'bar',
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { 
-                    y: { 
-                        beginAtZero: true, 
-                        ticks: { stepSize: 1 } 
-                    } 
-                },
-                plugins: { 
-                    legend: {
-                        position: 'top',
-                    },
-                    tooltip: { 
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.dataset.label}: ${context.parsed.y}`;
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        window.addEventListener('load', function() {
-            console.log("--- DEBUG JS: Evento window.load disparado. Inicializando gráficos. ---");
+            if valid_banners:
+                # Lógica de seleção pode ser mais complexa (ex: aleatório, rotação, menos impressions)
+                # Por agora, pegamos o mais recente dos válidos
+                active_banner_data = sorted(valid_banners, key=lambda x: x.get('created_at', 0), reverse=True)[0]
+        
+        if active_banner_data:
+            impression_ref = firebase_rtdb.reference(f'ads/banners/{active_banner_data["id"]}/impressions')
+            impression_ref.transaction(lambda current_value: (current_value or 0) + 1)
+            app.logger.info(f"Banner ID {active_banner_data['id']} servido via API e impressão registrada.")
+            return jsonify(active_banner_data)
+        else:
+            app.logger.info("API: Nenhum banner ativo encontrado para servir.")
+            return jsonify({"message": "Nenhum banner ativo encontrado"}), 404
             
-            try {
-                if (typeof Chart === 'undefined') {
-                    console.error("DEBUG_ERROR: Chart.js NÃO ESTÁ DEFINIDO. Verifique se o script <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> foi carregado ANTES deste script e se não há erros de rede.");
-                    return;
-                }
+    except Exception as e:
+        app.logger.error(f"Erro na API /api/get-banner: {e}", exc_info=True)
+        return jsonify({"error": "Erro interno ao buscar banner"}), 500
 
-                if (document.getElementById('bannerChart')) {
-                    const bannerCtx = document.getElementById('bannerChart').getContext('2d');
-                    if (bannerCtx) {
-                        console.log("DEBUG JS: Contexto do gráfico de banner (bannerCtx) encontrado. Criando gráfico.");
-                        new Chart(bannerCtx, { ...chartConfig, data: bannerData });
-                    } else {
-                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'bannerChart'.");
-                    }
-                } else {
-                    console.warn("DEBUG_WARN: Elemento canvas 'bannerChart' não encontrado no DOM.");
-                }
-                
-                if (document.getElementById('fullscreenChart')) {
-                    const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
-                    if (fullscreenCtx) {
-                        console.log("DEBUG JS: Contexto do gráfico de tela cheia (fullscreenCtx) encontrado. Criando gráfico.");
-                        new Chart(fullscreenCtx, { ...chartConfig, data: fullscreenData });
-                    } else {
-                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'fullscreenChart'.");
-                    }
-                } else {
-                    console.warn("DEBUG_WARN: Elemento canvas 'fullscreenChart' não encontrado no DOM.");
-                }
-            } catch (error) {
-                console.error("DEBUG_ERROR: Erro ao inicializar os gráficos:", error);
-                const chartContainers = document.querySelectorAll('.chart-container');
-                chartContainers.forEach(container => {
-                    container.innerHTML = '<p class="text-danger text-center mt-3">Erro ao carregar gráfico.</p>';
-                });
-            }
-        });
-    </script>
-</body>
-</html>
+@app.route('/api/register-click/banner/<string:ad_id>', methods=['POST'])
+def api_register_banner_click(ad_id):
+    if not init_firebase():
+        return jsonify({"error": "Firebase connection failed", "message": "Não foi possível conectar ao servidor de dados."}), 500
+    try:
+        # Verifica se o banner existe antes de tentar registrar o clique
+        banner_check_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}')
+        if not banner_check_ref.get():
+            app.logger.warning(f"API: Tentativa de registrar clique para banner inexistente ID {ad_id}")
+            return jsonify({"error": "Banner não encontrado"}), 404
+
+        click_ref = firebase_rtdb.reference(f'ads/banners/{ad_id}/clicks')
+        click_ref.transaction(lambda current_value: (current_value or 0) + 1)
+        app.logger.info(f"API: Clique registrado para banner ID {ad_id}")
+        return jsonify({"success": True, "message": "Clique registrado"})
+    except Exception as e:
+        app.logger.error(f"Erro ao registrar clique para banner {ad_id} via API: {e}", exc_info=True)
+        return jsonify({"error": "Erro ao registrar clique"}), 500
+
+# --- INICIALIZAÇÃO DA APLICAÇÃO (Bloco Principal) ---
+if __name__ == '__main__':
+    # Para desenvolvimento local, pode ser útil carregar python-dotenv
+    # from dotenv import load_dotenv
+    # load_dotenv()
+    # app.logger.info("Variáveis de ambiente .env carregadas (se existentes).")
+
+    if not init_firebase():
+        app.logger.critical("❌ INICIALIZAÇÃO LOCAL FALHOU: Firebase não pôde ser inicializado.")
+    
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+else:
+    # Gunicorn (Render) load
+    if not init_firebase():
+        logging.getLogger().critical("❌ (GUNICORN LOAD) INICIALIZAÇÃO FALHOU: Firebase não pôde ser inicializado.")
