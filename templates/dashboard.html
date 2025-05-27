@@ -7,127 +7,120 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
     <style>
-        :root {
-            --primary-color: #007bff;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --light-bg: #f8f9fa;
-            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
         body { 
-            background-color: var(--light-bg);
+            background-color: #f8f9fa; 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
-        /* Cards de Métricas */
+        
         .metric-card {
             border-radius: 10px;
-            box-shadow: var(--card-shadow);
-            transition: transform 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
         }
+        
         .metric-card:hover {
             transform: translateY(-5px);
         }
-        .banner-bg { background-color: #e3f2fd; }
-        .fullscreen-bg { background-color: #f0e6ff; }
-
-        /* Container de Gráficos */
+        
+        .banner-bg { 
+            background-color: #e3f2fd; 
+        }
+        
+        .fullscreen-bg { 
+            background-color: #f0e6ff; 
+        }
+        
         .chart-container { 
             height: 300px; 
             margin-bottom: 20px; 
             background-color: #fff; 
             padding: 15px;
             border-radius: 5px;
-            position: relative;
         }
 
-        /* Lista de Anúncios */
         .ad-list-item-wrapper {
-            border: 2px dashed var(--primary-color);
+            border: 3px solid red !important;
             margin-bottom: 15px;
             padding: 12px;
-            background-color: #fff;
-            border-radius: 8px;
-            overflow: visible;
+            background-color: yellow !important;
+            overflow: visible !important;
             min-height: 60px;
-            transition: all 0.2s ease;
+            position: relative !important;
+            z-index: 1000 !important;
         }
-        .ad-list-item-wrapper:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
+        
         .ad-list-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 15px;
-            border-bottom: 1px solid #eee;
-            height: auto;
+            padding: 12px 15px;
+            border: 2px dashed green !important;
+            background-color: cyan !important;
+            font-size: 16px !important;
+            color: black !important;
         }
-        .ad-list-item:last-child { border-bottom: none; }
-
-        .ad-actions {
-            display: flex;
+        
+        .ad-list-item:last-child { 
+            border-bottom: none; 
+        }
+        
+        .ad-actions { 
+            display: flex; 
             gap: 10px;
             flex-shrink: 0;
+            border: 2px dotted purple !important;
+            background-color: magenta !important;
         }
-
-        /* Botões de Ação */
+        
         .btn-edit {
-            background-color: var(--success-color); 
-            color: white; 
+            background-color: white !important; 
+            color: black !important; 
             border-radius: 50%;
-            width: 32px; 
-            height: 32px; 
+            width: 36px; 
+            height: 36px; 
             padding: 0; 
             display: inline-flex;
             align-items: center; 
             justify-content: center;
-            transition: opacity 0.2s;
+            border: 1px solid black !important;
+            font-size: 20px !important;
         }
-        .btn-edit:hover {
-            opacity: 0.9;
-        }
-
+        
         .btn-delete {
-            background-color: var(--danger-color); 
-            color: white; 
+            background-color: white !important;
+            color: black !important;
             border-radius: 50%;
-            width: 32px; 
-            height: 32px; 
+            width: 36px; 
+            height: 36px; 
             padding: 0; 
             display: inline-flex;
             align-items: center; 
             justify-content: center;
-            transition: opacity 0.2s;
+            border: 1px solid black !important;
+            font-size: 20px !important;
         }
-        .btn-delete:hover {
-            opacity: 0.9;
-        }
-
-        /* Debug */
-        .debug-marker {
+        
+        .debug-marker { 
             background-color: #fff0b3; 
             color: #333; 
             padding: 8px; 
             margin: 8px 0; 
-            border: 1px solid var(--warning-color); 
-            font-size: 0.9em;
+            border: 1px solid #ffc107; 
+            font-size: 0.9em; 
             border-radius: 4px;
         }
-
-        /* Responsividade */
+        
         @media (max-width: 768px) {
             .ad-list-item {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 10px;
             }
+            
             .ad-actions {
                 align-self: flex-end;
             }
+            
             .chart-container {
                 height: 250px;
             }
@@ -135,7 +128,6 @@
     </style>
 </head>
 <body>
-    <!-- Barra de Navegação -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="/">Dashboard de Anúncios</a>
@@ -159,9 +151,7 @@
         </div>
     </nav>
 
-    <!-- Conteúdo Principal -->
     <div class="container py-4">
-        <!-- Cabeçalho -->
         <div class="row mb-4">
             <div class="col-12">
                 <h1 class="display-5 mb-3">Métricas de Desempenho</h1>
@@ -169,9 +159,7 @@
             </div>
         </div>
 
-        <!-- Cards de Métricas -->
         <div class="row mb-4">
-            <!-- Banner Metrics -->
             <div class="col-md-6 mb-4">
                 <div class="card metric-card banner-bg h-100">
                     <div class="card-body">
@@ -196,7 +184,6 @@
                 </div>
             </div>
 
-            <!-- Fullscreen Metrics -->
             <div class="col-md-6 mb-4">
                 <div class="card metric-card fullscreen-bg h-100">
                     <div class="card-body">
@@ -222,7 +209,6 @@
             </div>
         </div>
 
-        <!-- Gráficos -->
         <div class="row mb-4">
             <div class="col-md-6 mb-4">
                 <div class="card metric-card h-100">
@@ -236,6 +222,7 @@
                     </div>
                 </div>
             </div>
+            
             <div class="col-md-6 mb-4">
                 <div class="card metric-card h-100">
                     <div class="card-body">
@@ -250,7 +237,6 @@
             </div>
         </div>
 
-        <!-- Lista de Banners -->
         <div class="row">
             <div class="col-12 mb-4">
                 <div class="card metric-card">
@@ -264,12 +250,10 @@
                             </a>
                         </div>
                         
-                        <!-- Debug Info -->
                         <div class="debug-marker">DEBUG HTML: Iniciando lista de banners. Número de ads: {{ metrics.banner.ads|length }}</div>
                         <div class="debug-marker">DEBUG HTML: metrics.banner.ads existe? {% if metrics.banner.ads is defined %}SIM{% else %}NÃO{% endif %}</div>
                         <div class="debug-marker">DEBUG HTML: metrics.banner.ads é uma lista? {% if metrics.banner.ads is iterable and metrics.banner.ads is not string and metrics.banner.ads is not mapping %}SIM{% else %}NÃO{% endif %}</div>
                         
-                        <!-- Lista de Anúncios -->
                         <div class="list-group">
                             {% if metrics.banner.ads and metrics.banner.ads|length > 0 %}
                                 {% for ad in metrics.banner.ads %}
@@ -306,7 +290,6 @@
                 </div>
             </div>
 
-            <!-- Lista de Anúncios Tela Cheia -->
             <div class="col-12 mb-4">
                 <div class="card metric-card">
                     <div class="card-body">
@@ -319,12 +302,10 @@
                             </a>
                         </div>
                         
-                        <!-- Debug Info -->
                         <div class="debug-marker">DEBUG HTML: Iniciando lista de anúncios de tela cheia. Número de ads: {{ metrics.fullscreen.ads|length }}</div>
                         <div class="debug-marker">DEBUG HTML: metrics.fullscreen.ads existe? {% if metrics.fullscreen.ads is defined %}SIM{% else %}NÃO{% endif %}</div>
                         <div class="debug-marker">DEBUG HTML: metrics.fullscreen.ads é uma lista? {% if metrics.fullscreen.ads is iterable and metrics.fullscreen.ads is not string and metrics.fullscreen.ads is not mapping %}SIM{% else %}NÃO{% endif %}</div>
 
-                        <!-- Lista de Anúncios -->
                         <div class="list-group">
                            {% if metrics.fullscreen.ads and metrics.fullscreen.ads|length > 0 %}
                                 {% for ad in metrics.fullscreen.ads %}
@@ -363,161 +344,158 @@
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Carregamento otimizado do Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        function loadChartJS() {
-            return new Promise((resolve, reject) => {
-                if (window.Chart) {
-                    resolve();
-                    return;
-                }
+        console.log("--- DEBUG JS: Script principal do dashboard.html iniciado ---");
 
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.body.appendChild(script);
-            });
+        function getSafeArray(dataFromJinja) {
+            if (Array.isArray(dataFromJinja)) {
+                return dataFromJinja;
+            }
+            if (typeof dataFromJinja === 'string') {
+                try {
+                    const parsed = JSON.parse(dataFromJinja);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    console.warn("DEBUG JS: Falha ao fazer parse de dataFromJinja como JSON (getSafeArray), retornando array vazio. Data:", dataFromJinja, "Erro:", e);
+                    return [];
+                }
+            }
+            console.warn("DEBUG JS: dataFromJinja não é array nem string JSON (getSafeArray), retornando array vazio. Data:", dataFromJinja);
+            return [];
         }
 
-        function initializeDashboard() {
-            console.log("--- Inicializando Dashboard ---");
+        function getAttributeFromArray(arr, attribute, defaultValueArg) {
+            const defaultValue = defaultValueArg !== undefined ? defaultValueArg : (attribute === 'title' ? 'Título N/A' : 0);
+            if (!Array.isArray(arr)) {
+                 console.warn(`DEBUG JS: Input para getAttributeFromArray (atributo '${attribute}') não é um array. Recebido:`, arr);
+                return [];
+            }
+            return arr.map(item => (item && typeof item === 'object' && item[attribute] !== undefined) ? item[attribute] : defaultValue);
+        }
 
-            // Funções auxiliares para tratamento seguro de dados
-            const getSafeData = (dataFromJinja, attribute) => {
-                if (!Array.isArray(dataFromJinja)) {
-                    console.warn(`Dados para '${attribute}' não são um array. Recebido:`, dataFromJinja);
-                    return [];
+        const rawBannerAds = {{ metrics.banner.ads | default([]) | tojson | safe }};
+        const rawFullscreenAds = {{ metrics.fullscreen.ads | default([]) | tojson | safe }};
+
+        console.log("DEBUG JS: rawBannerAds (do Jinja):", typeof rawBannerAds, JSON.parse(JSON.stringify(rawBannerAds)));
+        console.log("DEBUG JS: rawFullscreenAds (do Jinja):", typeof rawFullscreenAds, JSON.parse(JSON.stringify(rawFullscreenAds)));
+
+        const bannerAds = getSafeArray(rawBannerAds);
+        const fullscreenAds = getSafeArray(rawFullscreenAds);
+
+        console.log("DEBUG JS: bannerAds (após getSafeArray):", JSON.parse(JSON.stringify(bannerAds)));
+        console.log("DEBUG JS: fullscreenAds (após getSafeArray):", JSON.parse(JSON.stringify(fullscreenAds)));
+
+        const bannerData = {
+            labels: getAttributeFromArray(bannerAds, 'title'),
+            datasets: [
+                {
+                    label: 'Impressões',
+                    data: getAttributeFromArray(bannerAds, 'impressions'),
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cliques',
+                    data: getAttributeFromArray(bannerAds, 'clicks'),
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
                 }
-                return dataFromJinja
-                    .filter(item => item && Object.keys(item).length > 0)
-                    .map(item => (item[attribute] !== undefined) ? item[attribute] : (attribute === 'title' ? 'Título N/A' : 0);
-            };
+            ]
+        };
 
-            const getSafeAdsArray = (adsFromJinja) => {
-                try {
-                    if (Array.isArray(adsFromJinja)) return adsFromJinja;
-                    if (typeof adsFromJinja === 'string' && adsFromJinja.trim() !== '') {
-                        const parsed = JSON.parse(adsFromJinja);
-                        return Array.isArray(parsed) ? parsed : [];
-                    }
-                    return [];
-                } catch (e) {
-                    console.error("Erro ao processar dados:", e);
-                    return [];
+        const fullscreenData = {
+            labels: getAttributeFromArray(fullscreenAds, 'title'),
+            datasets: [
+                {
+                    label: 'Impressões',
+                    data: getAttributeFromArray(fullscreenAds, 'impressions'),
+                    backgroundColor: 'rgba(153, 102, 255, 0.7)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cliques',
+                    data: getAttributeFromArray(fullscreenAds, 'clicks'),
+                    backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
                 }
-            };
+            ]
+        };
 
-            // Processamento dos dados
-            const rawBannerAds = {{ metrics.banner.ads | default([]) | tojson | safe }};
-            const rawFullscreenAds = {{ metrics.fullscreen.ads | default([]) | tojson | safe }};
+        console.log("DEBUG JS: Dados FINAIS para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
+        console.log("DEBUG JS: Dados FINAIS para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
 
-            const bannerAds = getSafeAdsArray(rawBannerAds);
-            const fullscreenAds = getSafeAdsArray(rawFullscreenAds);
-
-            // Configuração dos gráficos
-            const chartConfig = {
-                type: 'bar',
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { stepSize: 1 } 
-                        } 
+        const chartConfig = {
+            type: 'bar',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { stepSize: 1 } 
+                    } 
+                },
+                plugins: { 
+                    legend: {
+                        position: 'top',
                     },
-                    plugins: { 
-                        legend: {
-                            position: 'top',
-                        },
-                        tooltip: { 
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.parsed.y}`;
-                                }
+                    tooltip: { 
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y}`;
                             }
                         }
                     }
                 }
-            };
+            }
+        };
 
-            // Inicialização dos gráficos
+        window.addEventListener('load', function() {
+            console.log("--- DEBUG JS: Evento window.load disparado. Inicializando gráficos. ---");
+            
             try {
-                const bannerCtx = document.getElementById('bannerChart')?.getContext('2d');
-                const fullscreenCtx = document.getElementById('fullscreenChart')?.getContext('2d');
-
-                if (bannerCtx) {
-                    new Chart(bannerCtx, {
-                        ...chartConfig,
-                        data: {
-                            labels: getSafeData(bannerAds, 'title'),
-                            datasets: [
-                                {
-                                    label: 'Impressões',
-                                    data: getSafeData(bannerAds, 'impressions'),
-                                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                                    borderColor: 'rgba(54, 162, 235, 1)',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Cliques',
-                                    data: getSafeData(bannerAds, 'clicks'),
-                                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                                    borderColor: 'rgba(255, 99, 132, 1)',
-                                    borderWidth: 1
-                                }
-                            ]
-                        }
-                    });
+                if (typeof Chart === 'undefined') {
+                    console.error("DEBUG_ERROR: Chart.js NÃO ESTÁ DEFINIDO. Verifique se o script <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> foi carregado ANTES deste script e se não há erros de rede.");
+                    return;
                 }
 
-                if (fullscreenCtx) {
-                    new Chart(fullscreenCtx, {
-                        ...chartConfig,
-                        data: {
-                            labels: getSafeData(fullscreenAds, 'title'),
-                            datasets: [
-                                {
-                                    label: 'Impressões',
-                                    data: getSafeData(fullscreenAds, 'impressions'),
-                                    backgroundColor: 'rgba(153, 102, 255, 0.7)',
-                                    borderColor: 'rgba(153, 102, 255, 1)',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Cliques',
-                                    data: getSafeData(fullscreenAds, 'clicks'),
-                                    backgroundColor: 'rgba(255, 159, 64, 0.7)',
-                                    borderColor: 'rgba(255, 159, 64, 1)',
-                                    borderWidth: 1
-                                }
-                            ]
-                        }
-                    });
+                if (document.getElementById('bannerChart')) {
+                    const bannerCtx = document.getElementById('bannerChart').getContext('2d');
+                    if (bannerCtx) {
+                        console.log("DEBUG JS: Contexto do gráfico de banner (bannerCtx) encontrado. Criando gráfico.");
+                        new Chart(bannerCtx, { ...chartConfig, data: bannerData });
+                    } else {
+                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'bannerChart'.");
+                    }
+                } else {
+                    console.warn("DEBUG_WARN: Elemento canvas 'bannerChart' não encontrado no DOM.");
+                }
+                
+                if (document.getElementById('fullscreenChart')) {
+                    const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
+                    if (fullscreenCtx) {
+                        console.log("DEBUG JS: Contexto do gráfico de tela cheia (fullscreenCtx) encontrado. Criando gráfico.");
+                        new Chart(fullscreenCtx, { ...chartConfig, data: fullscreenData });
+                    } else {
+                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'fullscreenChart'.");
+                    }
+                } else {
+                    console.warn("DEBUG_WARN: Elemento canvas 'fullscreenChart' não encontrado no DOM.");
                 }
             } catch (error) {
-                console.error("Erro ao inicializar gráficos:", error);
-                // Exibir mensagem amigável para o usuário
-                const containers = document.querySelectorAll('.chart-container');
-                containers.forEach(container => {
-                    container.innerHTML = '<p class="text-danger">Não foi possível carregar os gráficos. Recarregue a página.</p>';
+                console.error("DEBUG_ERROR: Erro ao inicializar os gráficos:", error);
+                const chartContainers = document.querySelectorAll('.chart-container');
+                chartContainers.forEach(container => {
+                    container.innerHTML = '<p class="text-danger text-center mt-3">Erro ao carregar gráfico.</p>';
                 });
             }
-        }
-
-        // Carregar Chart.js e depois inicializar o dashboard
-        loadChartJS()
-            .then(initializeDashboard)
-            .catch(error => {
-                console.error("Falha ao carregar Chart.js:", error);
-                document.querySelectorAll('.chart-container').forEach(el => {
-                    el.innerHTML = '<p class="text-danger">Erro ao carregar a biblioteca de gráficos.</p>';
-                });
-            });
+        });
     </script>
 </body>
 </html>
