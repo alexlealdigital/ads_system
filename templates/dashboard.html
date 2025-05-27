@@ -1,13 +1,13 @@
-&lt;!DOCTYPE html&gt;
-&lt;html lang=&quot;pt-br&quot;&gt;
-&lt;head&gt;
-    &lt;meta charset=&quot;UTF-8&quot;&gt;
-    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
-    &lt;title&gt;Dashboard de Anúncios&lt;/title&gt;
-    &lt;link href=&quot;https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css&quot; rel=&quot;stylesheet&quot;&gt;
-    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css&quot;&gt;
-    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/chart.js&quot;&gt;&lt;/script&gt;
-    &lt;style&gt;
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Anúncios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
         .metric-card {
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -64,333 +64,320 @@
             align-items: center;
             justify-content: center;
         }
-    &lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-    &lt;nav class=&quot;navbar navbar-expand-lg navbar-dark bg-primary&quot;&gt;
-        &lt;div class=&quot;container&quot;&gt;
-            &lt;a class=&quot;navbar-brand&quot; href=&quot;/&quot;&gt;Dashboard de Anúncios&lt;/a&gt;
-            &lt;button class=&quot;navbar-toggler&quot; type=&quot;button&quot; data-bs-toggle=&quot;collapse&quot; data-bs-target=&quot;#navbarNav&quot;&gt;
-                &lt;span class=&quot;navbar-toggler-icon&quot;&gt;&lt;/span&gt;
-            &lt;/button&gt;
-            &lt;div class=&quot;collapse navbar-collapse&quot; id=&quot;navbarNav&quot;&gt;
-                &lt;ul class=&quot;navbar-nav ms-auto&quot;&gt;
-                    &lt;li class=&quot;nav-item&quot;&gt;
-                        &lt;a class=&quot;nav-link&quot; href=&quot;/add-banner&quot;&gt;Adicionar Banner&lt;/a&gt;
-                    &lt;/li&gt;
-                    &lt;li class=&quot;nav-item&quot;&gt;
-                        &lt;a class=&quot;nav-link&quot; href=&quot;/add-fullscreen&quot;&gt;Adicionar Anúncio Tela Cheia&lt;/a&gt;
-                    &lt;/li&gt;
-                &lt;/ul&gt;
-            &lt;/div&gt;
-        &lt;/div&gt;
-    &lt;/nav&gt;
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Dashboard de Anúncios</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/add-banner">Adicionar Banner</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/add-fullscreen">Adicionar Anúncio Tela Cheia</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="container py-4">
-<div class="row mb-4">
-<div class="col-12">
-<h1 class="display-5 mb-4">Métricas de Desempenho</h1>
-<p class="lead">Visualize o desempenho dos seus anúncios em tempo real.</p>
-</div>
-</div>
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="display-5 mb-4">Métricas de Desempenho</h1>
+                <p class="lead">Visualize o desempenho dos seus anúncios em tempo real.</p>
+            </div>
+        </div>
 
-<div class="row mb-4">
-    <div class="col-md-6 mb-4">
-        <div class="card metric-card banner-bg h-100">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <span class="header-icon">🖼️</span>Banners (360×47px)
-                </h5>
-                <div class="row mt-4">
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.banner.ads_count }}</h3>
-                        <p class="text-muted">Total de Anúncios</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.banner.total_impressions }}</h3>
-                        <p class="text-muted">Impressões</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.banner.ctr }}%</h3>
-                        <p class="text-muted">Taxa de Cliques</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card metric-card fullscreen-bg h-100">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <span class="header-icon">📱</span>Tela Cheia (360×640px)
-                </h5>
-                <div class="row mt-4">
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.fullscreen.ads_count }}</h3>
-                        <p class="text-muted">Total de Anúncios</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.fullscreen.total_impressions }}</h3>
-                        <p class="text-muted">Impressões</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>{{ metrics.fullscreen.ctr }}%</h3>
-                        <p class="text-muted">Taxa de Cliques</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-6 mb-4">
-        <div class="card metric-card h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Desempenho de Banners</h5>
-                <div class="chart-container">
-                    <canvas id="bannerChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card metric-card h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Desempenho de Anúncios Tela Cheia</h5>
-                <div class="chart-container">
-                    <canvas id="fullscreenChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-12 mb-4">
-        <div class="card metric-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="card-title">
-                        <span class="header-icon">🖼️</span>Detalhes dos Banners
-                    </h5>
-                    <a href="/add-banner" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> Adicionar Banner
-                    </a>
-                </div>
-                
-                <p>DEBUG: Iniciando lista de banners. Número de ads: {{ metrics.banner.ads|length }}</p>
-                
-                <div class="list-group">
-                    {% for ad in metrics.banner.ads %}
-                    <p>DEBUG: Renderizando banner ID {{ ad.id }}, Título: {{ ad.title }}</p>
-                    <div class="ad-list-item">
-                        <div>
-                            <strong>{{ loop.index }}.</strong> {{ ad.title }}
+        <div class="row mb-4">
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card banner-bg h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="header-icon">🖼️</span>Banners (360×47px)
+                        </h5>
+                        <div class="row mt-4">
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.banner.ads_count }}</h3>
+                                <p class="text-muted">Total de Anúncios</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.banner.total_impressions }}</h3>
+                                <p class="text-muted">Impressões</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.banner.ctr }}%</h3>
+                                <p class="text-muted">Taxa de Cliques</p>
+                            </div>
                         </div>
-                        <div class="ad-actions">
-                            <a href="/edit-banner/{{ ad.id }}" class="btn btn-edit" aria-label="Editar">
-                                <i class="bi bi-pencil-fill"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card fullscreen-bg h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="header-icon">📱</span>Tela Cheia (360×640px)
+                        </h5>
+                        <div class="row mt-4">
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.fullscreen.ads_count }}</h3>
+                                <p class="text-muted">Total de Anúncios</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.fullscreen.total_impressions }}</h3>
+                                <p class="text-muted">Impressões</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <h3>{{ metrics.fullscreen.ctr }}%</h3>
+                                <p class="text-muted">Taxa de Cliques</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Desempenho de Banners</h5>
+                        <div class="chart-container">
+                            <canvas id="bannerChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Desempenho de Anúncios Tela Cheia</h5>
+                        <div class="chart-container">
+                            <canvas id="fullscreenChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card metric-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title">
+                                <span class="header-icon">🖼️</span>Detalhes dos Banners
+                            </h5>
+                            <a href="/add-banner" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle"></i> Adicionar Banner
                             </a>
-                            <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este banner?');">
-                                <button type="submit" class="btn btn-delete" aria-label="Deletar">
-                                    <i class="bi bi-trash-fill"></i>
-                                </button>
-                            </form>
                         </div>
-                    </div>
-                    {% endfor %}
-                    
-                    {% if not metrics.banner.ads %}
-                    <p>DEBUG: A lista de banners está vazia.</p>
-                    <div class="text-center py-3">
-                        <p class="text-muted">Nenhum banner cadastrado.</p>
-                    </div>
-                    {% endif %}
+                        
+                        <div class="list-group">
+                            {% for ad in metrics.banner.ads %}
+                            <div class="ad-list-item">
+                                <div>
+                                    <strong>{{ loop.index }}.</strong> {{ ad.title }}
+                                </div>
+                                <div class="ad-actions">
+                                    <a href="/edit-banner/{{ ad.id }}" class="btn btn-edit" aria-label="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <form action="/delete-banner/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este banner?');">
+                                        <button type="submit" class="btn btn-delete" aria-label="Deletar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            {% if not metrics.banner.ads %}
+                            <div class="text-center py-3">
+                                <p class="text-muted">Nenhum banner cadastrado.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        </div>
                 </div>
-                <p>DEBUG: Fim da lista de banners.</p>
             </div>
-        </div>
-    </div>
 
-    <div class="col-12 mb-4">
-        <div class="card metric-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="card-title">
-                        <span class="header-icon">📱</span>Detalhes dos Anúncios Tela Cheia
-                    </h5>
-                    <a href="/add-fullscreen" class="btn btn-primary btn-sm">
-                        <i class="bi bi-plus-circle"></i> Adicionar Anúncio
-                    </a>
-                </div>
-                
-                <p>DEBUG: Iniciando lista de anúncios de tela cheia. Número de ads: {{ metrics.fullscreen.ads|length }}</p>
-
-                <div class="list-group">
-                    {% for ad in metrics.fullscreen.ads %}
-                    <p>DEBUG: Renderizando anúncio tela cheia ID {{ ad.id }}, Título: {{ ad.title }}</p>
-                    <div class="ad-list-item">
-                        <div>
-                            <strong>{{ loop.index }}.</strong> {{ ad.title }}
-                        </div>
-                        <div class="ad-actions">
-                            <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-edit" aria-label="Editar">
-                                <i class="bi bi-pencil-fill"></i>
+            <div class="col-12 mb-4">
+                <div class="card metric-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title">
+                                <span class="header-icon">📱</span>Detalhes dos Anúncios Tela Cheia
+                            </h5>
+                            <a href="/add-fullscreen" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle"></i> Adicionar Anúncio
                             </a>
-                            <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este anúncio?');">
-                                <button type="submit" class="btn btn-delete" aria-label="Deletar">
-                                    <i class="bi bi-trash-fill"></i>
-                                </button>
-                            </form>
                         </div>
-                    </div>
-                    {% endfor %}
-                    
-                    {% if not metrics.fullscreen.ads %}
-                    <p>DEBUG: A lista de anúncios de tela cheia está vazia.</p>
-                    <div class="text-center py-3">
-                        <p class="text-muted">Nenhum anúncio de tela cheia cadastrado.</p>
-                    </div>
-                    {% endif %}
+                        
+                        <div class="list-group">
+                            {% for ad in metrics.fullscreen.ads %}
+                            <div class="ad-list-item">
+                                <div>
+                                    <strong>{{ loop.index }}.</strong> {{ ad.title }}
+                                </div>
+                                <div class="ad-actions">
+                                    <a href="/edit-fullscreen/{{ ad.id }}" class="btn btn-edit" aria-label="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <form action="/delete-fullscreen/{{ ad.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este anúncio?');">
+                                        <button type="submit" class="btn btn-delete" aria-label="Deletar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            {% if not metrics.fullscreen.ads %}
+                            <div class="text-center py-3">
+                                <p class="text-muted">Nenhum anúncio de tela cheia cadastrado.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        </div>
                 </div>
-                <p>DEBUG: Fim da lista de anúncios de tela cheia.</p>
             </div>
         </div>
     </div>
-</div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        console.log("DEBUG: Script principal do dashboard.html iniciado.");
 
-<script>
-console.log("DEBUG: Script principal do dashboard.html iniciado.");
-
-// Função auxiliar para garantir que temos um array para os filtros map
-function getSafeArray(dataArray) {
-    return Array.isArray(dataArray) ? dataArray : [];
-}
-
-const bannerAds = getSafeArray({{ metrics.banner.ads | tojson | safe }});
-const fullscreenAds = getSafeArray({{ metrics.fullscreen.ads | tojson | safe }});
-
-console.log("DEBUG: bannerAds processado:", JSON.parse(JSON.stringify(bannerAds)));
-console.log("DEBUG: fullscreenAds processado:", JSON.parse(JSON.stringify(fullscreenAds)));
-
-const bannerData = {
-    labels: bannerAds.map(ad => ad.title),
-    datasets: [
-        {
-            label: 'Impressões',
-            data: bannerAds.map(ad => ad.impressions !== undefined ? ad.impressions : 0),
-            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            borderWidth: 1
-        },
-        {
-            label: 'Cliques',
-            data: bannerAds.map(ad => ad.clicks !== undefined ? ad.clicks : 0),
-            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-            borderColor: 'rgba(255, 99, 132, 1)',
-            borderWidth: 1
+        // Função auxiliar para garantir que temos um array para os filtros map
+        function getSafeArray(dataArray) {
+            return Array.isArray(dataArray) ? dataArray : [];
         }
-    ]
-};
 
-const fullscreenData = {
-    labels: fullscreenAds.map(ad => ad.title),
-    datasets: [
-        {
-            label: 'Impressões',
-            data: fullscreenAds.map(ad => ad.impressions !== undefined ? ad.impressions : 0),
-            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            borderWidth: 1
-        },
-        {
-            label: 'Cliques',
-            data: fullscreenAds.map(ad => ad.clicks !== undefined ? ad.clicks : 0),
-            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-            borderColor: 'rgba(255, 99, 132, 1)',
-            borderWidth: 1
-        }
-    ]
-};
+        const bannerAds = getSafeArray({{ metrics.banner.ads | tojson | safe }});
+        const fullscreenAds = getSafeArray({{ metrics.fullscreen.ads | tojson | safe }});
 
-console.log("DEBUG: Dados FINAIS para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
-console.log("DEBUG: Dados FINAIS para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
+        console.log("DEBUG: bannerAds processado:", JSON.parse(JSON.stringify(bannerAds)));
+        console.log("DEBUG: fullscreenAds processado:", JSON.parse(JSON.stringify(fullscreenAds)));
 
-const chartConfig = {
-    type: 'bar',
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                   stepSize: 1
+        const bannerData = {
+            labels: bannerAds.map(ad => ad.title),
+            datasets: [
+                {
+                    label: 'Impressões',
+                    data: bannerAds.map(ad => ad.impressions !== undefined ? ad.impressions : 0),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cliques',
+                    data: bannerAds.map(ad => ad.clicks !== undefined ? ad.clicks : 0),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
                 }
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
+            ]
+        };
+
+        const fullscreenData = {
+            labels: fullscreenAds.map(ad => ad.title),
+            datasets: [
+                {
+                    label: 'Impressões',
+                    data: fullscreenAds.map(ad => ad.impressions !== undefined ? ad.impressions : 0),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cliques',
+                    data: fullscreenAds.map(ad => ad.clicks !== undefined ? ad.clicks : 0),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        };
+
+        console.log("DEBUG: Dados FINAIS para o gráfico de Banners:", JSON.parse(JSON.stringify(bannerData)));
+        console.log("DEBUG: Dados FINAIS para o gráfico de Tela Cheia:", JSON.parse(JSON.stringify(fullscreenData)));
+
+        const chartConfig = {
+            type: 'bar',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                           stepSize: 1
                         }
-                        if (context.parsed.y !== null) {
-                            label += context.parsed.y;
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y;
+                                }
+                                return label;
+                            }
                         }
-                        return label;
                     }
                 }
             }
-        }
-    }
-};
+        };
 
-window.addEventListener('load', function() {
-    console.log("DEBUG: Evento window.load disparado. Inicializando gráficos.");
-    
-    try {
-        if (document.getElementById('bannerChart')) {
-            const bannerCtx = document.getElementById('bannerChart').getContext('2d');
-            if (bannerCtx) {
-                console.log("DEBUG: Contexto do gráfico de banner (bannerCtx) encontrado. Criando gráfico.");
-                new Chart(bannerCtx, {
-                    ...chartConfig,
-                    data: bannerData
-                });
-            } else {
-                console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'bannerChart'.");
+        window.addEventListener('load', function() {
+            console.log("DEBUG: Evento window.load disparado. Inicializando gráficos.");
+            
+            try {
+                if (document.getElementById('bannerChart')) {
+                    const bannerCtx = document.getElementById('bannerChart').getContext('2d');
+                    if (bannerCtx) {
+                        console.log("DEBUG: Contexto do gráfico de banner (bannerCtx) encontrado. Criando gráfico.");
+                        new Chart(bannerCtx, {
+                            ...chartConfig,
+                            data: bannerData
+                        });
+                    } else {
+                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'bannerChart'.");
+                    }
+                } else {
+                    console.error("DEBUG_ERROR: Elemento canvas 'bannerChart' não encontrado!");
+                }
+                
+                if (document.getElementById('fullscreenChart')) {
+                    const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
+                    if (fullscreenCtx) {
+                        console.log("DEBUG: Contexto do gráfico de tela cheia (fullscreenCtx) encontrado. Criando gráfico.");
+                        new Chart(fullscreenCtx, {
+                            ...chartConfig,
+                            data: fullscreenData
+                        });
+                    } else {
+                        console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'fullscreenChart'.");
+                    }
+                } else {
+                    console.error("DEBUG_ERROR: Elemento canvas 'fullscreenChart' não encontrado!");
+                }
+            } catch (error) {
+                console.error("DEBUG_ERROR: Erro ao inicializar os gráficos:", error);
             }
-        } else {
-            console.error("DEBUG_ERROR: Elemento canvas 'bannerChart' não encontrado!");
-        }
-        
-        if (document.getElementById('fullscreenChart')) {
-            const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
-            if (fullscreenCtx) {
-                console.log("DEBUG: Contexto do gráfico de tela cheia (fullscreenCtx) encontrado. Criando gráfico.");
-                new Chart(fullscreenCtx, {
-                    ...chartConfig,
-                    data: fullscreenData
-                });
-            } else {
-                console.error("DEBUG_ERROR: Falha ao obter contexto 2D para 'fullscreenChart'.");
-            }
-        } else {
-            console.error("DEBUG_ERROR: Elemento canvas 'fullscreenChart' não encontrado!");
-        }
-    } catch (error) {
-        console.error("DEBUG_ERROR: Erro ao inicializar os gráficos:", error);
-    }
-});
-</script>
-
-
-&lt;/body&gt;
-&lt;/html&gt;
-&lt;/immersive-code>
+        });
+    </script>
+</body>
+</html>
